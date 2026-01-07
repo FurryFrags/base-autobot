@@ -1,0 +1,22 @@
+name = "base-autobot"
+main = "worker/src/index.ts"
+compatibility_date = "2026-01-07"
+compatibility_flags = ["nodejs_compat"]
+
+# Fill this in after you create the KV namespace in Cloudflare
+kv_namespaces = [
+  { binding = "KV", id = "baseautobot" }
+]
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+# Required secret (set via `wrangler secret put BOT_PRIVATE_KEY`):
+# - BOT_PRIVATE_KEY
+BASE_RPC_URL = "https://mainnet.base.org"
+CHAIN_ID = "8453"
+
+# Uniswap v3 Base deployments (SwapRouter02 + QuoterV2):
+UNISWAP_V3_SWAP_ROUTER02 = "0x2626664c2603336E57B271c5C0b26F421741e481"
+UNISWAP_V3_QUOTER_V2     = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a"
