@@ -99,16 +99,27 @@ wrangler secret put BOT_PRIVATE_KEY
 
 ## 7) First deploy (Worker)
 
-The repo includes a workflow:
+Wrangler must run against the Worker config in `worker/`.
 
-- `.github/workflows/deploy-worker.yml`
+### Option A: Cloudflare “Deploy from Git”
 
-It deploys when you push to `main`.
+Set the build command to one of:
 
-1. Push to `main`.
-2. In GitHub: **Actions → Deploy Worker**.
-3. Confirm it succeeds.
-4. In Cloudflare Dashboard → Workers & Pages → Workers:
+- `cd worker && npx wrangler deploy`
+- `npx wrangler deploy --config worker/wrangler.toml`
+
+### Option B: CI workflow (GitHub Actions or similar)
+
+Ensure the workflow runs Wrangler from `worker/`, or pass the config explicitly:
+
+- set the working directory to `worker/` and run `npx wrangler deploy`
+- or run `npx wrangler deploy --config worker/wrangler.toml`
+
+Then deploy and confirm the Worker exists:
+
+1. Push to `main` (or trigger the workflow).
+2. Confirm the deploy succeeds.
+3. In Cloudflare Dashboard → Workers & Pages → Workers:
    - open your Worker
    - note the public URL (e.g. `https://base-autobot.<your-subdomain>.workers.dev`)
 
