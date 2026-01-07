@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # Fill this in after you create the KV namespace in Cloudflare
 kv_namespaces = [
-  { binding = "KV", id = "BASE_AUTOBOT_KV" }
+  { binding = "KV", id = "baseautobot" }
 ]
 
 [triggers]
