@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Base AutoBot Dashboard</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; max-width: 960px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #ddd; background: #fafafa; cursor: pointer; }
+    button:hover { background: #f0f0f0; }
+    code, pre { background:#f6f6f6; padding: 10px; border-radius: 10px; overflow:auto; }
+    .pill { padding: 4px 10px; border-radius: 999px; border:1px solid #ddd; display:inline-block; }
+    .ok { border-color: #9be7b0; background:#f3fff7; }
+    .bad { border-color: #f1a5a5; background:#fff5f5; }
+    .muted { color:#666; }
+    .card { border:1px solid #eee; border-radius: 14px; padding: 14px; margin-top: 14px; }
+    input { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; width: min(520px, 100%); }
+  </style>
+</head>
+<body>
+  <h1>Base AutoBot</h1>
+  <p class="muted">Cloudflare Worker + KV autonomous engine. Starts <b>paused</b> by default.</p>
+
+  <div class="card">
+    <h2>Configuration</h2>
+    <p class="muted">Set <code>WORKER_BASE_URL</code> as a Cloudflare Pages environment variable. If empty, this page uses the current origin.</p>
+    <div class="row">
+      <input id="workerUrl" placeholder="https://your-worker.workers.dev" />
+      <button id="saveWorkerUrl">Save</button>
+      <span id="cfgStatus" class="pill">not set</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Status</h2>
+    <div class="row">
+      <button id="refresh">Refresh state</button>
+      <button id="pause">Pause</button>
+      <button id="resume">Resume</button>
+      <button id="runOnce">Run once</button>
+      <span id="pausedPill" class="pill">unknown</span>
+    </div>
+    <h3>State</h3>
+    <pre id="state">loading...</pre>
+  </div>
+
+  <div class="card">
+    <h2>Wallet (optional)</h2>
+    <p class="muted">Coinbase Wallet Extension (or any injected EIP-1193 wallet) can connect for manual ops. The bot itself signs with the Worker key.</p>
+    <div class="row">
+      <button id="connect">Connect injected wallet</button>
+      <span id="acct" class="pill">not connected</span>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const els = {
+    workerUrl: document.getElementById('workerUrl'),
+    saveWorkerUrl: document.getElementById('saveWorkerUrl'),
+    cfgStatus: document.getElementById('cfgStatus'),
+    refresh: document.getElementById('refresh'),
+    pause: document.getElementById('pause'),
+    resume: document.getElementById('resume'),
+    runOnce: document.getElementById('runOnce'),
+    pausedPill: document.getElementById('pausedPill'),
+    state: document.getElementById('state'),
+    connect: document.getElementById('connect'),
+    acct: document.getElementById('acct'),
+  };
+
+  const ENV_WORKER = (typeof WORKER_BASE_URL !== "undefined") ? WORKER_BASE_URL : "";
+  const LS_KEY = "base_autobot_worker_url";
+
+  function getBase() {
+    return localStorage.getItem(LS_KEY) || ENV_WORKER || location.origin;
+  }
+
+  function setCfgPill(ok) {
+    els.cfgStatus.textContent = ok ? "configured" : "not set";
+    els.cfgStatus.className = "pill " + (ok ? "ok" : "bad");
+  }
+
+  async function api(path, opts) {
+    const base = getBase().replace(/\/$/, "");
+    const res = await fetch(base + path, opts);
+    const txt = await res.text();
+    let data;
+    try { data = JSON.parse(txt); } catch { data = txt; }
+    if (!res.ok) throw new Error(res.status + " " + txt);
+    return data;
+  }
+
+  async function refresh() {
+    try {
+      const st = await api("/state");
+      els.state.textContent = JSON.stringify(st, null, 2);
+      els.pausedPill.textContent = st.paused ? "paused" : "running";
+      els.pausedPill.className = "pill " + (st.paused ? "bad" : "ok");
+    } catch (e) {
+      els.state.textContent = String(e);
+      els.pausedPill.textContent = "error";
+      els.pausedPill.className = "pill bad";
+    }
+  }
+
+  els.saveWorkerUrl.onclick = () => {
+    const v = els.workerUrl.value.trim();
+    if (!v) return;
+    localStorage.setItem(LS_KEY, v);
+    setCfgPill(true);
+    refresh();
+  };
+
+  els.refresh.onclick = refresh;
+
+  els.pause.onclick = async () => {
+    await api("/pause", { method: "POST" });
+    refresh();
+  };
+
+  els.resume.onclick = async () => {
+    await api("/resume", { method: "POST" });
+    refresh();
+  };
+
+  els.runOnce.onclick = async () => {
+    await api("/run-once", { method: "POST" });
+    refresh();
+  };
+
+  els.connect.onclick = async () => {
+    if (!window.ethereum) {
+      els.acct.textContent = "no injected wallet";
+      els.acct.className = "pill bad";
+      return;
+    }
+    const accts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    els.acct.textContent = accts && accts[0] ? accts[0] : "unknown";
+    els.acct.className = "pill ok";
+  };
+
+  // init
+  const base = getBase();
+  els.workerUrl.value = localStorage.getItem(LS_KEY) || "";
+  setCfgPill(Boolean(localStorage.getItem(LS_KEY) || ENV_WORKER));
+  refresh();
+})();
+</script>
+</body>
+</html>
