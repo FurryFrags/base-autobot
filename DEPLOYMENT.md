@@ -86,7 +86,18 @@ Edit `worker/wrangler.toml`:
 
 ---
 
-## 6) First deploy (Worker)
+## 6) Set required Worker secrets
+
+Before deploying, set the required secret in your Cloudflare account:
+
+```bash
+cd worker
+wrangler secret put BOT_PRIVATE_KEY
+```
+
+---
+
+## 7) First deploy (Worker)
 
 The repo includes a workflow:
 
@@ -114,7 +125,7 @@ Expected:
 
 ---
 
-## 7) Create & deploy the Dashboard (Pages)
+## 8) Create & deploy the Dashboard (Pages)
 
 This dashboard is static HTML/JS in `apps/dashboard/` (no build step).
 
@@ -141,7 +152,7 @@ Then redeploy.
 
 ---
 
-## 8) Unpause + run safely
+## 9) Unpause + run safely
 
 The bot is paused by default. To unpause:
 
@@ -154,7 +165,7 @@ See `worker/src/strategy.ts`.
 
 ---
 
-## 9) Making it trade
+## 10) Making it trade
 
 Open `worker/src/strategy.ts` and implement your decision logic.
 
@@ -174,7 +185,7 @@ Recommended bring-up steps:
 
 ---
 
-## 10) Coinbase Wallet Extension usage
+## 11) Coinbase Wallet Extension usage
 
 The Worker is autonomous and signs with `BOT_PRIVATE_KEY`.
 
@@ -186,7 +197,7 @@ Coinbase Wallet Extension is used for:
 
 ---
 
-## 11) Updating secrets safely
+## 12) Updating secrets safely
 
 To rotate the bot key:
 
@@ -217,4 +228,3 @@ Common causes:
 - token has transfer fees / special behavior
 
 ---
-

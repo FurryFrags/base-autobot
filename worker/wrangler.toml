@@ -12,6 +12,8 @@ kv_namespaces = [
 crons = ["*/5 * * * *"]
 
 [vars]
+# Required secret (set via `wrangler secret put BOT_PRIVATE_KEY`):
+# - BOT_PRIVATE_KEY
 BASE_RPC_URL = "https://mainnet.base.org"
 CHAIN_ID = "8453"
 
