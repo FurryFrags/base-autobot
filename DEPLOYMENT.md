@@ -225,7 +225,7 @@ To rotate the bot key:
 
 ### Cron not running?
 - Cron triggers run in UTC and may not fire immediately after deploy.
-- Confirm Cron is configured in `wrangler.toml` and visible in the Worker settings.
+- Confirm Cron is configured in `worker/wrangler.toml` and visible in the Worker settings.
 
 ### “Missing token address”
 - Only the allowlisted tokens are included. If you edit allowlist, you must provide valid addresses.
