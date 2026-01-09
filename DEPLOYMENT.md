@@ -121,7 +121,7 @@ Then deploy and confirm the Worker exists:
 2. Confirm the deploy succeeds.
 3. In Cloudflare Dashboard → Workers & Pages → Workers:
    - open your Worker
-   - note the public URL (e.g. `https://base-autobot.<your-subdomain>.workers.dev`)
+   - note the public URL (e.g. `https://baseautobot.<your-subdomain>.workers.dev`)
 
 ### Confirm the API works
 
