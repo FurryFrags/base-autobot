@@ -11,6 +11,27 @@ export type RuntimeConfig = {
   defaultMinMovePct: number;
   defaultMinIntervalSec: number;
   startingCashUsd: number;
+  addressBook: {
+    chainId: number;
+    network: string;
+    routers: {
+      uniswapV2Factory: string;
+      uniswapV2Router02: string;
+      uniswapUniversalRouter: string;
+      uniswapPermit2: string;
+      uniswapV3Factory: string;
+      uniswapV3SwapRouter02: string;
+      uniswapV3QuoterV2: string;
+    };
+    tokens: {
+      weth: string;
+      usdc: string;
+      usdbc: string;
+      aave: string;
+      link: string;
+      base: string;
+    };
+  };
 };
 
 export type PricePoint = {

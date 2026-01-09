@@ -1,4 +1,5 @@
 import type { ExecutionMode, RuntimeConfig } from "./types";
+import { baseMainnetAddressBook } from "./chain";
 
 function asNumber(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
@@ -23,6 +24,7 @@ export function buildRuntimeConfig(env: EnvBindings): RuntimeConfig {
     defaultMinMovePct: asNumber(env.DEFAULT_MIN_MOVE_PCT, 0.35),
     defaultMinIntervalSec: asNumber(env.DEFAULT_MIN_INTERVAL_SEC, 300),
     startingCashUsd: asNumber(env.STARTING_CASH_USD, 1000),
+    addressBook: baseMainnetAddressBook,
   };
 }
 

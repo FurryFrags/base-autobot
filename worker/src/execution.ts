@@ -74,6 +74,12 @@ export async function executeSignal(
       tradeSizeUsd: state.params.tradeSizeUsd,
       generatedAt: signal.generatedAt,
       reason: signal.reason,
+      chain: {
+        chainId: config.addressBook.chainId,
+        network: config.addressBook.network,
+        routers: config.addressBook.routers,
+        tokens: config.addressBook.tokens,
+      },
     };
 
     const response = await fetch(config.webhookUrl, {
