@@ -70,6 +70,8 @@ export type BotState = {
   lastSignal?: Signal;
   lastExecution?: ExecutionResult;
   lastTradeAt?: string;
+  lastError?: { message: string; at: string };
+  errorCount?: number;
   portfolio: {
     cashUsd: number;
     asset: number;
