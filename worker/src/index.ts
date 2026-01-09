@@ -36,6 +36,25 @@ async function runOnce(env: EnvBindings, state: BotState): Promise<BotState> {
   };
 }
 
+async function runOnceWithDiagnostics(
+  env: EnvBindings,
+  state: BotState,
+): Promise<{ next: BotState; error?: string }> {
+  try {
+    return { next: await runOnce(env, state) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      next: {
+        ...state,
+        lastError: { message, at: new Date().toISOString() },
+        errorCount: (state.errorCount ?? 0) + 1,
+      },
+      error: message,
+    };
+  }
+}
+
 function parseBody(req: Request): Promise<unknown> {
   const contentType = req.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) {
@@ -136,8 +155,11 @@ export default {
       if (!(await requireAuth(req, env))) return json({ error: "unauthorized" }, 401);
       const state = await loadState(env.KV, config);
       if (state.paused) return json({ ok: false, error: "paused" }, 409);
-      const next = await runOnce(env, state);
+      const { next, error } = await runOnceWithDiagnostics(env, state);
       await saveState(env.KV, next);
+      if (error) {
+        return json({ ok: false, error, lastError: next.lastError }, 500);
+      }
       return json({ ok: true, signal: next.lastSignal, execution: next.lastExecution });
     }
 
@@ -150,7 +172,7 @@ export default {
         const config = buildRuntimeConfig(env);
         const state = await loadState(env.KV, config);
         if (state.paused) return;
-        const next = await runOnce(env, state);
+        const { next } = await runOnceWithDiagnostics(env, state);
         await saveState(env.KV, next);
       })(),
     );
