@@ -10,6 +10,12 @@ export type RuntimeConfig = {
   defaultTradeSizeUsd: number;
   defaultMinMovePct: number;
   defaultMinIntervalSec: number;
+  defaultMaxPositionUsd: number;
+  defaultMaxDrawdownPct: number;
+  defaultStopLossPct: number;
+  defaultTakeProfitPct: number;
+  defaultVolatilityLookback: number;
+  defaultMaxTradesPerHour: number;
   startingCashUsd: number;
   addressBook: {
     chainId: number;
@@ -68,10 +74,18 @@ export type BotState = {
     cashUsd: number;
     asset: number;
   };
+  avgEntryPrice?: number;
+  priceHistory: number[];
   params: {
     tradeSizeUsd: number;
     minMovePct: number;
     minIntervalSec: number;
+    maxPositionUsd: number;
+    maxDrawdownPct: number;
+    stopLossPct: number;
+    takeProfitPct: number;
+    volatilityLookback: number;
+    maxTradesPerHour: number;
   };
 };
 
