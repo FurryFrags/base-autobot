@@ -1,32 +1,42 @@
-import type { TokenInfo, TokenSymbol } from "./types";
+import type { ExecutionMode, RuntimeConfig } from "./types";
 
-/**
- * Allowlist ONLY.
- * Addresses verified on Base via BaseScan + Uniswap Base deployments page.
- */
-export function getTokenMap(): Record<TokenSymbol, TokenInfo> {
+function asNumber(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function asMode(value: string | undefined, fallback: ExecutionMode): ExecutionMode {
+  if (value === "paper" || value === "webhook" || value === "disabled") return value;
+  return fallback;
+}
+
+export function buildRuntimeConfig(env: EnvBindings): RuntimeConfig {
   return {
-    // cbBTC (8 decimals)
-    CBBTC: { symbol: "CBBTC", address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf", decimals: 8 },
-
-    // WETH on Base (Uniswap docs list Base wrapped native token address)
-    ETH:   { symbol: "ETH",   address: "0x4200000000000000000000000000000000000006", decimals: 18 },
-
-    // LINK on Base (you can replace if you use a different canonical LINK bridge)
-    LINK:  { symbol: "LINK",  address: "0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196", decimals: 18 },
-
-    // AAVE on Base
-    AAVE:  { symbol: "AAVE",  address: "0x63706e401c06ac8513145b7687a14804d17f814b", decimals: 18 },
-
-    // USDC on Base
-    USDC:  { symbol: "USDC",  address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6 },
+    assetSymbol: env.ASSET_SYMBOL || "BASE",
+    priceFeedUrl: env.PRICE_FEED_URL || "https://api.coinbase.com/v2/prices/ETH-USD/spot",
+    priceField: env.PRICE_FIELD || "data.amount",
+    executionMode: asMode(env.EXECUTION_MODE, "paper"),
+    webhookUrl: env.WEBHOOK_URL,
+    webhookAuthToken: env.WEBHOOK_AUTH_TOKEN,
+    defaultTradeSizeUsd: asNumber(env.DEFAULT_TRADE_SIZE_USD, 25),
+    defaultMinMovePct: asNumber(env.DEFAULT_MIN_MOVE_PCT, 0.35),
+    defaultMinIntervalSec: asNumber(env.DEFAULT_MIN_INTERVAL_SEC, 300),
+    startingCashUsd: asNumber(env.STARTING_CASH_USD, 1000),
   };
 }
 
-export function assertAllowlist(map: Record<string, { address: string }>) {
-  for (const [k, v] of Object.entries(map)) {
-    if (!v.address || !v.address.startsWith("0x") || v.address.length !== 42) {
-      throw new Error(`Bad address for token ${k}: ${v.address}`);
-    }
-  }
-}
+export type EnvBindings = {
+  KV: KVNamespace;
+  ADMIN_TOKEN?: string;
+  ASSET_SYMBOL?: string;
+  PRICE_FEED_URL?: string;
+  PRICE_FIELD?: string;
+  EXECUTION_MODE?: ExecutionMode;
+  WEBHOOK_URL?: string;
+  WEBHOOK_AUTH_TOKEN?: string;
+  DEFAULT_TRADE_SIZE_USD?: string;
+  DEFAULT_MIN_MOVE_PCT?: string;
+  DEFAULT_MIN_INTERVAL_SEC?: string;
+  STARTING_CASH_USD?: string;
+};

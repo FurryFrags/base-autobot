@@ -1,34 +1,45 @@
-export type BotState = {
-  paused: boolean;
-  lastRunAt?: string;
-  lastResult?: unknown;
-  params: {
-    // Safety knobs
-    maxSlippageBps: number; // e.g. 50 = 0.50%
-    maxTradesPerRun: number;
-    tradeSizeUsd: string; // human string to avoid float surprises
-    defaultFee: number; // Uniswap v3 fee tier, e.g. 500 / 3000 / 10000
+import type { BotState, RuntimeConfig } from "./types";
+
+const KEY = "bot_state_v2";
+
+function defaultState(config: RuntimeConfig): BotState {
+  return {
+    paused: true,
+    lastRunAt: undefined,
+    lastPrice: undefined,
+    lastSignal: undefined,
+    lastExecution: undefined,
+    lastTradeAt: undefined,
+    portfolio: {
+      cashUsd: config.startingCashUsd,
+      asset: 0,
+    },
+    params: {
+      tradeSizeUsd: config.defaultTradeSizeUsd,
+      minMovePct: config.defaultMinMovePct,
+      minIntervalSec: config.defaultMinIntervalSec,
+    },
   };
-};
-
-const KEY = "bot_state_v1";
-
-export async function loadState(KV: KVNamespace): Promise<BotState> {
-  const raw = await KV.get(KEY);
-  if (!raw) {
-    return {
-      paused: true, // SAFE DEFAULT
-      params: {
-        maxSlippageBps: 50,
-        maxTradesPerRun: 1,
-        tradeSizeUsd: "25",
-        defaultFee: 3000,
-      },
-    };
-  }
-  return JSON.parse(raw) as BotState;
 }
 
-export async function saveState(KV: KVNamespace, st: BotState): Promise<void> {
-  await KV.put(KEY, JSON.stringify(st));
+export async function loadState(KV: KVNamespace, config: RuntimeConfig): Promise<BotState> {
+  const raw = await KV.get(KEY);
+  if (!raw) return defaultState(config);
+  const parsed = JSON.parse(raw) as BotState;
+  return {
+    ...defaultState(config),
+    ...parsed,
+    portfolio: {
+      ...defaultState(config).portfolio,
+      ...parsed.portfolio,
+    },
+    params: {
+      ...defaultState(config).params,
+      ...parsed.params,
+    },
+  };
+}
+
+export async function saveState(KV: KVNamespace, state: BotState): Promise<void> {
+  await KV.put(KEY, JSON.stringify(state));
 }

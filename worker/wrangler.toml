@@ -1,7 +1,6 @@
 name = "baseautobot"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
-compatibility_flags = ["nodejs_compat"]
 
 # Fill this in after you create the KV namespace in Cloudflare
 # (or override via environment-specific config / deployment automation)
@@ -13,11 +12,21 @@ kv_namespaces = [
 crons = ["*/5 * * * *"]
 
 [vars]
-# Required secret (set via `wrangler secret put BOT_PRIVATE_KEY`):
-# - BOT_PRIVATE_KEY
-BASE_RPC_URL = "https://mainnet.base.org"
-CHAIN_ID = "8453"
+# Optional shared secret for admin endpoints (set via `wrangler secret put ADMIN_TOKEN`)
+# ADMIN_TOKEN = ""
 
-# Uniswap v3 Base deployments (SwapRouter02 + QuoterV2):
-UNISWAP_V3_SWAP_ROUTER02 = "0x2626664c2603336E57B271c5C0b26F421741e481"
-UNISWAP_V3_QUOTER_V2     = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a"
+# Market data source
+PRICE_FEED_URL = "https://api.coinbase.com/v2/prices/ETH-USD/spot"
+PRICE_FIELD = "data.amount"
+ASSET_SYMBOL = "ETH"
+
+# Execution settings: paper | webhook | disabled
+EXECUTION_MODE = "paper"
+# WEBHOOK_URL = "https://your-executor.example.com/trade"
+# WEBHOOK_AUTH_TOKEN = ""
+
+# Strategy defaults
+DEFAULT_TRADE_SIZE_USD = "25"
+DEFAULT_MIN_MOVE_PCT = "0.35"
+DEFAULT_MIN_INTERVAL_SEC = "300"
+STARTING_CASH_USD = "1000"

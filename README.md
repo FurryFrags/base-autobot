@@ -1,29 +1,15 @@
-# Base AutoBot (Cloudflare-only infra)
+# Base AutoBot (Cloudflare Workers)
 
-**What this is:** a Cloudflare Workers + KV autonomous trading skeleton for **Base mainnet (chainId 8453)** that can quote and trade **ONLY** the allowlisted tokens:
-
-- cbBTC (CBBTC)
-- WETH (ETH on Base)
-- LINK
-- AAVE
-- USDC
+**What this is:** a Cloudflare Worker + KV trading signal engine that fetches a price feed, generates buy/sell/hold signals, and either simulates trades (paper mode) or forwards signals to your own execution webhook.
 
 **What it's NOT (by default):**
-- It does **not** auto-trade out of the box. The bot starts **PAUSED** and the example strategy never trades until you change it.
+- It does **not** custody funds or trade on-chain directly.
+- It starts **PAUSED** and only runs when you resume it.
 
 ## Components
 
-- `worker/` — Cloudflare Worker (cron-driven) + small JSON API
-- `apps/dashboard/` — Cloudflare Pages static dashboard + optional Coinbase Wallet Extension connect
-
-## Key contracts (Base)
-
-- Base RPC (default): `https://mainnet.base.org`
-- Uniswap V3 Deployments on Base: https://docs.uniswap.org/contracts/v3/reference/deployments/base-deployments
-
-This template uses:
-- **QuoterV2**: `0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a`
-- **SwapRouter02**: `0x2626664c2603336E57B271c5C0b26F421741e481`
+- `worker/` — Cloudflare Worker (cron-driven) + JSON API
+- `apps/dashboard/` — Cloudflare Pages static dashboard
 
 ## Quick start (local)
 
