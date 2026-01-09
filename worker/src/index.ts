@@ -1,6 +1,6 @@
 import { buildRuntimeConfig, type EnvBindings } from "./config";
 import { executeSignal } from "./execution";
-import { fetchPrice } from "./market";
+import { fetchMarketPoint } from "./market";
 import { loadState, saveState } from "./state";
 import { evaluateStrategy } from "./strategy";
 import type { BotState } from "./types";
@@ -22,8 +22,8 @@ async function requireAuth(req: Request, env: EnvBindings): Promise<boolean> {
 
 async function runOnce(env: EnvBindings, state: BotState): Promise<BotState> {
   const config = buildRuntimeConfig(env);
-  const pricePoint = await fetchPrice(config);
-  const updatedHistory = updatePriceHistory(state, pricePoint.price);
+  const pricePoint = await fetchMarketPoint(config);
+  const updatedHistory = updateMarketHistory(state, pricePoint);
   const { signal } = evaluateStrategy(pricePoint, updatedHistory);
   const { result, nextState } = await executeSignal(config, updatedHistory, signal);
 
@@ -31,6 +31,7 @@ async function runOnce(env: EnvBindings, state: BotState): Promise<BotState> {
     ...nextState,
     lastRunAt: new Date().toISOString(),
     lastPrice: pricePoint.price,
+    lastIndexPrice: pricePoint.indexPrice ?? state.lastIndexPrice,
     lastSignal: signal,
     lastExecution: result,
   };
@@ -69,12 +70,19 @@ function ensureNumber(value: unknown, fallback: number, options?: { min?: number
   return value;
 }
 
-function updatePriceHistory(state: BotState, price: number): BotState {
-  const lookback = Math.max(1, Math.floor(state.params.volatilityLookback));
-  const history = [...state.priceHistory, price].slice(-lookback);
+function updateMarketHistory(state: BotState, point: { price: number; indexPrice?: number }): BotState {
+  const lookback = Math.max(
+    1,
+    Math.floor(Math.max(state.params.volatilityLookback, state.params.forecastLookback)),
+  );
+  const history = [...state.priceHistory, point.price].slice(-lookback);
+  const indexHistory = point.indexPrice
+    ? [...state.indexHistory, point.indexPrice].slice(-lookback)
+    : state.indexHistory;
   return {
     ...state,
     priceHistory: history,
+    indexHistory,
   };
 }
 
@@ -90,6 +98,8 @@ function applyConfigPatch(state: BotState, payload: Record<string, unknown> | nu
   const takeProfitPct = ensureNumber(payload.takeProfitPct, state.params.takeProfitPct, { min: 0 });
   const volatilityLookback = ensureNumber(payload.volatilityLookback, state.params.volatilityLookback, { min: 1 });
   const maxTradesPerHour = ensureNumber(payload.maxTradesPerHour, state.params.maxTradesPerHour, { min: 0 });
+  const indexMinMovePct = ensureNumber(payload.indexMinMovePct, state.params.indexMinMovePct, { min: 0 });
+  const forecastLookback = ensureNumber(payload.forecastLookback, state.params.forecastLookback, { min: 2 });
 
   return {
     ...state,
@@ -103,6 +113,55 @@ function applyConfigPatch(state: BotState, payload: Record<string, unknown> | nu
       takeProfitPct,
       volatilityLookback,
       maxTradesPerHour,
+      indexMinMovePct,
+      forecastLookback,
+    },
+  };
+}
+
+function sanitizeTokenValues(
+  payload: Record<string, unknown> | undefined,
+  current: Record<string, number>,
+  options?: { min?: number; max?: number },
+): Record<string, number> {
+  if (!payload) return current;
+  const next = { ...current };
+  for (const [key, value] of Object.entries(payload)) {
+    if (!(key in current)) continue;
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+    if (options?.min !== undefined && value < options.min) continue;
+    if (options?.max !== undefined && value > options.max) continue;
+    next[key] = value;
+  }
+  return next;
+}
+
+function applyPortfolioPatch(
+  state: BotState,
+  payload: Record<string, unknown> | null,
+): BotState {
+  if (!payload) return state;
+
+  const cashUsd = ensureNumber(payload.cashUsd, state.portfolio.cashUsd, { min: 0 });
+  const asset = ensureNumber(payload.asset, state.portfolio.asset, { min: 0 });
+  const tokenBalancesUsd = sanitizeTokenValues(
+    payload.tokenBalancesUsd as Record<string, unknown> | undefined,
+    state.portfolio.tokenBalancesUsd,
+    { min: 0 },
+  );
+  const allocationTargets = sanitizeTokenValues(
+    payload.allocationTargets as Record<string, unknown> | undefined,
+    state.portfolio.allocationTargets,
+    { min: 0, max: 1 },
+  );
+
+  return {
+    ...state,
+    portfolio: {
+      cashUsd,
+      asset,
+      tokenBalancesUsd,
+      allocationTargets,
     },
   };
 }
@@ -124,6 +183,20 @@ export default {
     if (url.pathname === "/state") {
       const state = await loadState(env.KV, config);
       return json(state);
+    }
+
+    if (url.pathname === "/portfolio" && method === "GET") {
+      const state = await loadState(env.KV, config);
+      return json(state.portfolio);
+    }
+
+    if (url.pathname === "/portfolio" && method === "POST") {
+      if (!(await requireAuth(req, env))) return json({ error: "unauthorized" }, 401);
+      const state = await loadState(env.KV, config);
+      const payload = (await parseBody(req)) as Record<string, unknown> | null;
+      const next = applyPortfolioPatch(state, payload);
+      await saveState(env.KV, next);
+      return json({ ok: true, portfolio: next.portfolio });
     }
 
     if (url.pathname === "/pause" && method === "POST") {

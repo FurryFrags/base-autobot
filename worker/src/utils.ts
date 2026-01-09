@@ -22,3 +22,14 @@ export function asNumber(value: unknown): number | undefined {
 export function nowIso(): string {
   return new Date().toISOString();
 }
+
+export function resolveTokenKey(
+  assetSymbol: string,
+  tokens: Record<string, string>,
+): string | undefined {
+  const normalized = assetSymbol.trim().toLowerCase();
+  for (const key of Object.keys(tokens)) {
+    if (key.toLowerCase() === normalized) return key;
+  }
+  return undefined;
+}

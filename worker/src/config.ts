@@ -17,6 +17,8 @@ export function buildRuntimeConfig(env: EnvBindings): RuntimeConfig {
     assetSymbol: env.ASSET_SYMBOL || "BASE",
     priceFeedUrl: env.PRICE_FEED_URL || "https://api.coinbase.com/v2/prices/ETH-USD/spot",
     priceField: env.PRICE_FIELD || "data.amount",
+    indexFeedUrl: env.INDEX_FEED_URL,
+    indexPriceField: env.INDEX_PRICE_FIELD || "data.amount",
     executionMode: asMode(env.EXECUTION_MODE, "paper"),
     webhookUrl: env.WEBHOOK_URL,
     webhookAuthToken: env.WEBHOOK_AUTH_TOKEN,
@@ -29,6 +31,8 @@ export function buildRuntimeConfig(env: EnvBindings): RuntimeConfig {
     defaultTakeProfitPct: asNumber(env.DEFAULT_TAKE_PROFIT_PCT, 0),
     defaultVolatilityLookback: asNumber(env.DEFAULT_VOLATILITY_LOOKBACK, 20),
     defaultMaxTradesPerHour: asNumber(env.DEFAULT_MAX_TRADES_PER_HOUR, 0),
+    defaultIndexMinMovePct: asNumber(env.DEFAULT_INDEX_MIN_MOVE_PCT, 0),
+    defaultForecastLookback: asNumber(env.DEFAULT_FORECAST_LOOKBACK, 20),
     startingCashUsd: asNumber(env.STARTING_CASH_USD, 1000),
     addressBook: baseMainnetAddressBook,
   };
@@ -40,6 +44,8 @@ export type EnvBindings = {
   ASSET_SYMBOL?: string;
   PRICE_FEED_URL?: string;
   PRICE_FIELD?: string;
+  INDEX_FEED_URL?: string;
+  INDEX_PRICE_FIELD?: string;
   EXECUTION_MODE?: ExecutionMode;
   WEBHOOK_URL?: string;
   WEBHOOK_AUTH_TOKEN?: string;
@@ -52,5 +58,7 @@ export type EnvBindings = {
   DEFAULT_TAKE_PROFIT_PCT?: string;
   DEFAULT_VOLATILITY_LOOKBACK?: string;
   DEFAULT_MAX_TRADES_PER_HOUR?: string;
+  DEFAULT_INDEX_MIN_MOVE_PCT?: string;
+  DEFAULT_FORECAST_LOOKBACK?: string;
   STARTING_CASH_USD?: string;
 };

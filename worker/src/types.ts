@@ -4,6 +4,8 @@ export type RuntimeConfig = {
   assetSymbol: string;
   priceFeedUrl: string;
   priceField: string;
+  indexFeedUrl?: string;
+  indexPriceField?: string;
   executionMode: ExecutionMode;
   webhookUrl?: string;
   webhookAuthToken?: string;
@@ -16,6 +18,8 @@ export type RuntimeConfig = {
   defaultTakeProfitPct: number;
   defaultVolatilityLookback: number;
   defaultMaxTradesPerHour: number;
+  defaultIndexMinMovePct: number;
+  defaultForecastLookback: number;
   startingCashUsd: number;
   addressBook: {
     chainId: number;
@@ -45,6 +49,12 @@ export type PricePoint = {
   fetchedAt: string;
 };
 
+export type MarketPoint = {
+  price: number;
+  indexPrice?: number;
+  fetchedAt: string;
+};
+
 export type Signal = {
   action: "buy" | "sell" | "hold";
   reason: string;
@@ -67,6 +77,7 @@ export type BotState = {
   paused: boolean;
   lastRunAt?: string;
   lastPrice?: number;
+  lastIndexPrice?: number;
   lastSignal?: Signal;
   lastExecution?: ExecutionResult;
   lastTradeAt?: string;
@@ -75,9 +86,12 @@ export type BotState = {
   portfolio: {
     cashUsd: number;
     asset: number;
+    tokenBalancesUsd: Record<string, number>;
+    allocationTargets: Record<string, number>;
   };
   avgEntryPrice?: number;
   priceHistory: number[];
+  indexHistory: number[];
   params: {
     tradeSizeUsd: number;
     minMovePct: number;
@@ -88,10 +102,12 @@ export type BotState = {
     takeProfitPct: number;
     volatilityLookback: number;
     maxTradesPerHour: number;
+    indexMinMovePct: number;
+    forecastLookback: number;
   };
 };
 
 export type StrategyResult = {
-  pricePoint: PricePoint;
+  pricePoint: MarketPoint;
   signal: Signal;
 };

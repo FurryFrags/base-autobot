@@ -1,5 +1,5 @@
 import type { BotState, ExecutionResult, RuntimeConfig, Signal } from "./types";
-import { nowIso } from "./utils";
+import { nowIso, resolveTokenKey } from "./utils";
 
 function canTrade(state: BotState): { ok: boolean; reason?: string } {
   if (!state.lastTradeAt) return { ok: true };
@@ -20,6 +20,16 @@ export async function executeSignal(
   state: BotState,
   signal: Signal,
 ): Promise<{ result: ExecutionResult; nextState: BotState }> {
+  const assetTokenKey = resolveTokenKey(config.assetSymbol, config.addressBook.tokens);
+  const allocationTarget =
+    assetTokenKey && state.portfolio.allocationTargets
+      ? state.portfolio.allocationTargets[assetTokenKey]
+      : undefined;
+  const totalPortfolioUsd =
+    state.portfolio.cashUsd +
+    state.portfolio.asset * signal.price +
+    Object.values(state.portfolio.tokenBalancesUsd ?? {}).reduce((sum, value) => sum + value, 0);
+
   if (signal.action === "hold") {
     return {
       result: {
@@ -71,6 +81,9 @@ export async function executeSignal(
     }
 
     const exposureUsd = state.portfolio.asset * signal.price;
+    const projectedExposureUsd = exposureUsd + state.params.tradeSizeUsd;
+    const allocationLimitUsd =
+      allocationTarget && allocationTarget > 0 ? totalPortfolioUsd * allocationTarget : undefined;
     const payload = {
       action: signal.action,
       asset: config.assetSymbol,
@@ -79,6 +92,8 @@ export async function executeSignal(
       generatedAt: signal.generatedAt,
       reason: signal.reason,
       exposureUsd,
+      projectedExposureUsd,
+      allocationLimitUsd,
       riskParams: {
         maxPositionUsd: state.params.maxPositionUsd,
         maxDrawdownPct: state.params.maxDrawdownPct,
@@ -86,6 +101,15 @@ export async function executeSignal(
         takeProfitPct: state.params.takeProfitPct,
         volatilityLookback: state.params.volatilityLookback,
         maxTradesPerHour: state.params.maxTradesPerHour,
+        indexMinMovePct: state.params.indexMinMovePct,
+        forecastLookback: state.params.forecastLookback,
+      },
+      portfolio: {
+        cashUsd: state.portfolio.cashUsd,
+        assetBalance: state.portfolio.asset,
+        tokenBalancesUsd: state.portfolio.tokenBalancesUsd,
+        allocationTargets: state.portfolio.allocationTargets,
+        totalValueUsd: totalPortfolioUsd,
       },
       chain: {
         chainId: config.addressBook.chainId,
@@ -148,6 +172,22 @@ export async function executeSignal(
   const assetDelta = tradeSizeUsd / price;
 
   if (signal.action === "buy") {
+    if (allocationTarget && allocationTarget > 0) {
+      const projectedExposure = state.portfolio.asset * price + tradeSizeUsd;
+      const allocationLimit = totalPortfolioUsd * allocationTarget;
+      if (projectedExposure > allocationLimit) {
+        return {
+          result: {
+            status: "skipped",
+            mode: config.executionMode,
+            detail: "Allocation limit reached",
+            executedAt: nowIso(),
+          },
+          nextState: state,
+        };
+      }
+    }
+
     if (state.portfolio.cashUsd < tradeSizeUsd) {
       return {
         result: {
@@ -172,6 +212,8 @@ export async function executeSignal(
       portfolio: {
         cashUsd: state.portfolio.cashUsd - tradeSizeUsd,
         asset: nextAsset,
+        tokenBalancesUsd: state.portfolio.tokenBalancesUsd,
+        allocationTargets: state.portfolio.allocationTargets,
       },
     };
 
@@ -212,6 +254,8 @@ export async function executeSignal(
     portfolio: {
       cashUsd: state.portfolio.cashUsd + cashDelta,
       asset: remainingAsset,
+      tokenBalancesUsd: state.portfolio.tokenBalancesUsd,
+      allocationTargets: state.portfolio.allocationTargets,
     },
   };
 
