@@ -23,8 +23,9 @@ async function requireAuth(req: Request, env: EnvBindings): Promise<boolean> {
 async function runOnce(env: EnvBindings, state: BotState): Promise<BotState> {
   const config = buildRuntimeConfig(env);
   const pricePoint = await fetchPrice(config);
-  const { signal } = evaluateStrategy(pricePoint, state);
-  const { result, nextState } = await executeSignal(config, state, signal);
+  const updatedHistory = updatePriceHistory(state, pricePoint.price);
+  const { signal } = evaluateStrategy(pricePoint, updatedHistory);
+  const { result, nextState } = await executeSignal(config, updatedHistory, signal);
 
   return {
     ...nextState,
@@ -43,13 +44,33 @@ function parseBody(req: Request): Promise<unknown> {
   return req.json();
 }
 
+function ensureNumber(value: unknown, fallback: number, options?: { min?: number }): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  if (options?.min !== undefined && value < options.min) return fallback;
+  return value;
+}
+
+function updatePriceHistory(state: BotState, price: number): BotState {
+  const lookback = Math.max(1, Math.floor(state.params.volatilityLookback));
+  const history = [...state.priceHistory, price].slice(-lookback);
+  return {
+    ...state,
+    priceHistory: history,
+  };
+}
+
 function applyConfigPatch(state: BotState, payload: Record<string, unknown> | null): BotState {
   if (!payload) return state;
 
-  const tradeSizeUsd = typeof payload.tradeSizeUsd === "number" ? payload.tradeSizeUsd : state.params.tradeSizeUsd;
-  const minMovePct = typeof payload.minMovePct === "number" ? payload.minMovePct : state.params.minMovePct;
-  const minIntervalSec =
-    typeof payload.minIntervalSec === "number" ? payload.minIntervalSec : state.params.minIntervalSec;
+  const tradeSizeUsd = ensureNumber(payload.tradeSizeUsd, state.params.tradeSizeUsd, { min: 0 });
+  const minMovePct = ensureNumber(payload.minMovePct, state.params.minMovePct, { min: 0 });
+  const minIntervalSec = ensureNumber(payload.minIntervalSec, state.params.minIntervalSec, { min: 0 });
+  const maxPositionUsd = ensureNumber(payload.maxPositionUsd, state.params.maxPositionUsd, { min: 0 });
+  const maxDrawdownPct = ensureNumber(payload.maxDrawdownPct, state.params.maxDrawdownPct, { min: 0 });
+  const stopLossPct = ensureNumber(payload.stopLossPct, state.params.stopLossPct, { min: 0 });
+  const takeProfitPct = ensureNumber(payload.takeProfitPct, state.params.takeProfitPct, { min: 0 });
+  const volatilityLookback = ensureNumber(payload.volatilityLookback, state.params.volatilityLookback, { min: 1 });
+  const maxTradesPerHour = ensureNumber(payload.maxTradesPerHour, state.params.maxTradesPerHour, { min: 0 });
 
   return {
     ...state,
@@ -57,6 +78,12 @@ function applyConfigPatch(state: BotState, payload: Record<string, unknown> | nu
       tradeSizeUsd,
       minMovePct,
       minIntervalSec,
+      maxPositionUsd,
+      maxDrawdownPct,
+      stopLossPct,
+      takeProfitPct,
+      volatilityLookback,
+      maxTradesPerHour,
     },
   };
 }

@@ -6,8 +6,11 @@ function canTrade(state: BotState): { ok: boolean; reason?: string } {
   const last = Date.parse(state.lastTradeAt);
   if (!Number.isFinite(last)) return { ok: true };
   const elapsed = (Date.now() - last) / 1000;
-  if (elapsed < state.params.minIntervalSec) {
-    return { ok: false, reason: `Cooldown ${state.params.minIntervalSec}s not met` };
+  const maxTradesInterval =
+    state.params.maxTradesPerHour > 0 ? 3600 / state.params.maxTradesPerHour : 0;
+  const effectiveMinInterval = Math.max(state.params.minIntervalSec, maxTradesInterval);
+  if (elapsed < effectiveMinInterval) {
+    return { ok: false, reason: `Cooldown ${effectiveMinInterval}s not met` };
   }
   return { ok: true };
 }
@@ -67,6 +70,7 @@ export async function executeSignal(
       };
     }
 
+    const exposureUsd = state.portfolio.asset * signal.price;
     const payload = {
       action: signal.action,
       asset: config.assetSymbol,
@@ -74,6 +78,15 @@ export async function executeSignal(
       tradeSizeUsd: state.params.tradeSizeUsd,
       generatedAt: signal.generatedAt,
       reason: signal.reason,
+      exposureUsd,
+      riskParams: {
+        maxPositionUsd: state.params.maxPositionUsd,
+        maxDrawdownPct: state.params.maxDrawdownPct,
+        stopLossPct: state.params.stopLossPct,
+        takeProfitPct: state.params.takeProfitPct,
+        volatilityLookback: state.params.volatilityLookback,
+        maxTradesPerHour: state.params.maxTradesPerHour,
+      },
       chain: {
         chainId: config.addressBook.chainId,
         network: config.addressBook.network,
@@ -147,12 +160,18 @@ export async function executeSignal(
       };
     }
 
+    const nextAsset = state.portfolio.asset + assetDelta;
+    const nextAvgEntryPrice =
+      nextAsset > 0
+        ? ((state.portfolio.asset * (state.avgEntryPrice ?? price)) + tradeSizeUsd) / nextAsset
+        : undefined;
     const nextState: BotState = {
       ...state,
       lastTradeAt: nowIso(),
+      avgEntryPrice: nextAvgEntryPrice,
       portfolio: {
         cashUsd: state.portfolio.cashUsd - tradeSizeUsd,
-        asset: state.portfolio.asset + assetDelta,
+        asset: nextAsset,
       },
     };
 
@@ -185,12 +204,14 @@ export async function executeSignal(
 
   const cashDelta = maxAssetToSell * price;
 
+  const remainingAsset = state.portfolio.asset - maxAssetToSell;
   const nextState: BotState = {
     ...state,
     lastTradeAt: nowIso(),
+    avgEntryPrice: remainingAsset > 0 ? state.avgEntryPrice : undefined,
     portfolio: {
       cashUsd: state.portfolio.cashUsd + cashDelta,
-      asset: state.portfolio.asset - maxAssetToSell,
+      asset: remainingAsset,
     },
   };
 

@@ -23,6 +23,12 @@ export function buildRuntimeConfig(env: EnvBindings): RuntimeConfig {
     defaultTradeSizeUsd: asNumber(env.DEFAULT_TRADE_SIZE_USD, 25),
     defaultMinMovePct: asNumber(env.DEFAULT_MIN_MOVE_PCT, 0.35),
     defaultMinIntervalSec: asNumber(env.DEFAULT_MIN_INTERVAL_SEC, 300),
+    defaultMaxPositionUsd: asNumber(env.DEFAULT_MAX_POSITION_USD, 0),
+    defaultMaxDrawdownPct: asNumber(env.DEFAULT_MAX_DRAWDOWN_PCT, 0),
+    defaultStopLossPct: asNumber(env.DEFAULT_STOP_LOSS_PCT, 0),
+    defaultTakeProfitPct: asNumber(env.DEFAULT_TAKE_PROFIT_PCT, 0),
+    defaultVolatilityLookback: asNumber(env.DEFAULT_VOLATILITY_LOOKBACK, 20),
+    defaultMaxTradesPerHour: asNumber(env.DEFAULT_MAX_TRADES_PER_HOUR, 0),
     startingCashUsd: asNumber(env.STARTING_CASH_USD, 1000),
     addressBook: baseMainnetAddressBook,
   };
@@ -40,5 +46,11 @@ export type EnvBindings = {
   DEFAULT_TRADE_SIZE_USD?: string;
   DEFAULT_MIN_MOVE_PCT?: string;
   DEFAULT_MIN_INTERVAL_SEC?: string;
+  DEFAULT_MAX_POSITION_USD?: string;
+  DEFAULT_MAX_DRAWDOWN_PCT?: string;
+  DEFAULT_STOP_LOSS_PCT?: string;
+  DEFAULT_TAKE_PROFIT_PCT?: string;
+  DEFAULT_VOLATILITY_LOOKBACK?: string;
+  DEFAULT_MAX_TRADES_PER_HOUR?: string;
   STARTING_CASH_USD?: string;
 };
