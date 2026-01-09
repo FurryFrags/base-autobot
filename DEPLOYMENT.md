@@ -81,7 +81,17 @@ Edit `wrangler.toml` (repo root). If you deploy from `worker/`, keep `worker/wra
      { binding = "KV", id = "PASTE_KV_ID_HERE" }
    ]
    ```
-   You can get this ID from **Workers & Pages → KV** in the Cloudflare dashboard, or via:
+   Here’s the most beginner-friendly way to get it from the Cloudflare dashboard:
+   1. Open **Cloudflare Dashboard**.
+   2. Click **Workers & Pages** in the left sidebar.
+   3. Click **KV**.
+   4. Click **Create a namespace**.
+   5. Name it `BASE_AUTOBOT_KV`, then click **Add**.
+   6. In the KV list, click the new namespace to view details.
+   7. Copy the **Namespace ID** (a long hex string).
+   8. Paste that value into `id = "PASTE_KV_ID_HERE"` above.
+
+   Alternatively, you can create it from the CLI (if you have Wrangler set up):
    ```
    npx wrangler kv:namespace create BASE_AUTOBOT_KV
    ```
