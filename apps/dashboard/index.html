@@ -20,7 +20,7 @@
 </head>
 <body>
   <h1>Base AutoBot</h1>
-  <p class="muted">Cloudflare Worker + KV autonomous engine. Starts <b>paused</b> by default.</p>
+  <p class="muted">Cloudflare Worker + KV trading signal engine. Starts <b>paused</b> by default.</p>
 
   <div class="card">
     <h2>Configuration</h2>
@@ -46,12 +46,8 @@
   </div>
 
   <div class="card">
-    <h2>Wallet (optional)</h2>
-    <p class="muted">Coinbase Wallet Extension (or any injected EIP-1193 wallet) can connect for manual ops. The bot itself signs with the Worker key.</p>
-    <div class="row">
-      <button id="connect">Connect injected wallet</button>
-      <span id="acct" class="pill">not connected</span>
-    </div>
+    <h2>Execution modes</h2>
+    <p class="muted">Configure the Worker to run in paper mode (simulated trades), webhook mode (POST signals to your executor), or disabled.</p>
   </div>
 
 <script>
@@ -66,8 +62,6 @@
     runOnce: document.getElementById('runOnce'),
     pausedPill: document.getElementById('pausedPill'),
     state: document.getElementById('state'),
-    connect: document.getElementById('connect'),
-    acct: document.getElementById('acct'),
   };
 
   const ENV_WORKER = (typeof WORKER_BASE_URL !== "undefined") ? WORKER_BASE_URL : "";
@@ -130,19 +124,7 @@
     refresh();
   };
 
-  els.connect.onclick = async () => {
-    if (!window.ethereum) {
-      els.acct.textContent = "no injected wallet";
-      els.acct.className = "pill bad";
-      return;
-    }
-    const accts = await window.ethereum.request({ method: "eth_requestAccounts" });
-    els.acct.textContent = accts && accts[0] ? accts[0] : "unknown";
-    els.acct.className = "pill ok";
-  };
-
   // init
-  const base = getBase();
   els.workerUrl.value = localStorage.getItem(LS_KEY) || "";
   setCfgPill(Boolean(localStorage.getItem(LS_KEY) || ENV_WORKER));
   refresh();

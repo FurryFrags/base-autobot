@@ -1,10 +1,10 @@
 # Step-by-step deployment (GitHub + Cloudflare ONLY)
 
 This guide deploys:
-- a **Cloudflare Worker** (autonomous bot engine) using **GitHub Actions**
+- a **Cloudflare Worker** (trading signal engine) using **GitHub Actions** or Deploy from Git
 - a **Cloudflare Pages** site (dashboard) using **Cloudflare Pages Git integration**
 
-> The Worker runs on a schedule (Cron Trigger). It starts **PAUSED** by default.
+> The Worker runs on a schedule (Cron Trigger) and starts **PAUSED** by default.
 
 ---
 
@@ -32,7 +32,7 @@ In Cloudflare Dashboard:
 2. Create a namespace named e.g. `BASE_AUTOBOT_KV`.
 3. Copy the **Namespace ID** (you will paste it into `worker/wrangler.toml`).
 
-> KV is used to store bot state (pause flag, params, last run results).
+> KV stores bot state (pause flag, params, last run results).
 
 ---
 
@@ -47,7 +47,6 @@ A minimal practical set (varies by account setup) is typically:
 - **Account → Workers Scripts → Edit**
 - **Account → Workers KV Storage → Edit**
 - **Account → Account Settings → Read** (sometimes needed)
-- If you deploy to a specific zone/route, add the needed Zone permissions (this template does not require routes).
 
 Copy the token value.
 
@@ -63,10 +62,11 @@ Add:
 
 - `CLOUDFLARE_API_TOKEN` = the token you created
 - `CLOUDFLARE_ACCOUNT_ID` = your Cloudflare account ID
-- `BOT_PRIVATE_KEY` = EVM private key used by the Worker to sign trades on Base
-  - fund this address with small ETH on Base for gas
 
-> The private key is stored as a **Worker Secret** at deploy time.
+(Optional) Add:
+- `ADMIN_TOKEN` = shared secret for `/pause`, `/resume`, `/config`, `/run-once`
+
+> `ADMIN_TOKEN` is stored as a **Worker Secret** at deploy time.
 
 ---
 
@@ -83,16 +83,17 @@ Edit `worker/wrangler.toml`:
    ```
 3. Optionally change the cron schedule:
    - default: every 5 minutes: `*/5 * * * *`
+4. Configure the market feed and execution mode via `[vars]`.
 
 ---
 
-## 6) Set required Worker secrets
+## 6) Set optional Worker secrets
 
-Before deploying, set the required secret in your Cloudflare account:
+If you want admin auth, set the secret in your Cloudflare account:
 
 ```bash
 cd worker
-wrangler secret put BOT_PRIVATE_KEY
+wrangler secret put ADMIN_TOKEN
 ```
 
 ---
@@ -171,53 +172,17 @@ The bot is paused by default. To unpause:
 - Or call:
   - `POST https://<worker-url>/resume`
 
-**Important:** the included strategy never trades until you change it.
-See `worker/src/strategy.ts`.
-
 ---
 
-## 10) Making it trade
+## 10) Hook up real execution (optional)
 
-Open `worker/src/strategy.ts` and implement your decision logic.
+Set the Worker execution mode to `webhook` and configure the URL:
 
-The helper in `worker/src/uniswap.ts` supports:
-- quoting with `QuoterV2`
-- swapping with `SwapRouter02` via `exactInputSingle`
+- `EXECUTION_MODE = "webhook"`
+- `WEBHOOK_URL = "https://your-executor.example.com/trade"`
+- `WEBHOOK_AUTH_TOKEN = "<optional bearer token>"`
 
-Recommended bring-up steps:
-
-1. Run in **quote-only** mode first (`execute: false`)
-2. Enable approvals with tiny amounts
-3. Enable execution with tiny amounts
-4. Add guards:
-   - max trades per day
-   - max slippage bps
-   - minimum liquidity checks (your call)
-
----
-
-## 11) Coinbase Wallet Extension usage
-
-The Worker is autonomous and signs with `BOT_PRIVATE_KEY`.
-
-Coinbase Wallet Extension is used for:
-- funding the bot address
-- viewing balances
-- emergency withdrawals
-- manual control via the dashboard “Connect Wallet” button (optional)
-
----
-
-## 12) Updating secrets safely
-
-To rotate the bot key:
-
-1. Put the Worker in paused mode:
-   - `POST /pause`
-2. Update GitHub secret `BOT_PRIVATE_KEY`
-3. Push any commit (or re-run workflow) to redeploy
-4. Fund the new address if needed
-5. Resume
+The webhook receives JSON payloads describing the action and trade size. Implement your own executor to sign and submit trades.
 
 ---
 
@@ -227,15 +192,8 @@ To rotate the bot key:
 - Cron triggers run in UTC and may not fire immediately after deploy.
 - Confirm Cron is configured in `worker/wrangler.toml` and visible in the Worker settings.
 
-### “Missing token address”
-- Only the allowlisted tokens are included. If you edit allowlist, you must provide valid addresses.
-
-### Quote succeeds, swap fails
-Common causes:
-- insufficient allowance
-- insufficient balance
-- wrong pool fee tier
-- slippage too tight
-- token has transfer fees / special behavior
+### “Invalid price from feed”
+- Confirm your `PRICE_FEED_URL` and `PRICE_FIELD` are correct.
+- Ensure the feed returns a numeric price.
 
 ---
