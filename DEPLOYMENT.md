@@ -72,15 +72,20 @@ Add:
 
 ## 5) Configure the Worker
 
-Edit `worker/wrangler.toml`:
+Edit `wrangler.toml` (repo root). If you deploy from `worker/`, keep `worker/wrangler.toml` in sync with the same values.
 
 1. Set `name` to something globally unique (Workers names are global per account).
-2. Paste your KV namespace id into:
+2. Paste your KV **Namespace ID** into:
    ```
    kv_namespaces = [
      { binding = "KV", id = "PASTE_KV_ID_HERE" }
    ]
    ```
+   You can get this ID from **Workers & Pages → KV** in the Cloudflare dashboard, or via:
+   ```
+   npx wrangler kv:namespace create BASE_AUTOBOT_KV
+   ```
+   Copy the `id` value from the command output.
 3. Optionally change the cron schedule:
    - default: every 5 minutes: `*/5 * * * *`
 4. Configure the market feed and execution mode via `[vars]`.
