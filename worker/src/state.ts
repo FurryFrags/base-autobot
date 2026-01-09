@@ -2,20 +2,31 @@ import type { BotState, RuntimeConfig } from "./types";
 
 const KEY = "bot_state_v2";
 
+function buildTokenRecord(value: number, config: RuntimeConfig): Record<string, number> {
+  return Object.keys(config.addressBook.tokens).reduce<Record<string, number>>((acc, key) => {
+    acc[key] = value;
+    return acc;
+  }, {});
+}
+
 function defaultState(config: RuntimeConfig): BotState {
   return {
     paused: true,
     lastRunAt: undefined,
     lastPrice: undefined,
+    lastIndexPrice: undefined,
     lastSignal: undefined,
     lastExecution: undefined,
     lastTradeAt: undefined,
     portfolio: {
       cashUsd: config.startingCashUsd,
       asset: 0,
+      tokenBalancesUsd: buildTokenRecord(0, config),
+      allocationTargets: buildTokenRecord(0, config),
     },
     avgEntryPrice: undefined,
     priceHistory: [],
+    indexHistory: [],
     params: {
       tradeSizeUsd: config.defaultTradeSizeUsd,
       minMovePct: config.defaultMinMovePct,
@@ -26,6 +37,8 @@ function defaultState(config: RuntimeConfig): BotState {
       takeProfitPct: config.defaultTakeProfitPct,
       volatilityLookback: config.defaultVolatilityLookback,
       maxTradesPerHour: config.defaultMaxTradesPerHour,
+      indexMinMovePct: config.defaultIndexMinMovePct,
+      forecastLookback: config.defaultForecastLookback,
     },
   };
 }
@@ -40,8 +53,17 @@ export async function loadState(KV: KVNamespace, config: RuntimeConfig): Promise
     portfolio: {
       ...defaultState(config).portfolio,
       ...parsed.portfolio,
+      tokenBalancesUsd: {
+        ...defaultState(config).portfolio.tokenBalancesUsd,
+        ...(parsed.portfolio?.tokenBalancesUsd ?? {}),
+      },
+      allocationTargets: {
+        ...defaultState(config).portfolio.allocationTargets,
+        ...(parsed.portfolio?.allocationTargets ?? {}),
+      },
     },
     priceHistory: parsed.priceHistory ?? defaultState(config).priceHistory,
+    indexHistory: parsed.indexHistory ?? defaultState(config).indexHistory,
     params: {
       ...defaultState(config).params,
       ...parsed.params,

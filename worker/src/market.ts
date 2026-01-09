@@ -1,8 +1,8 @@
-import type { PricePoint, RuntimeConfig } from "./types";
+import type { MarketPoint, RuntimeConfig } from "./types";
 import { asNumber, nowIso, readPath } from "./utils";
 
-export async function fetchPrice(config: RuntimeConfig): Promise<PricePoint> {
-  const response = await fetch(config.priceFeedUrl, {
+async function fetchPriceFromFeed(url: string, field: string): Promise<number> {
+  const response = await fetch(url, {
     headers: {
       accept: "application/json",
     },
@@ -13,15 +13,26 @@ export async function fetchPrice(config: RuntimeConfig): Promise<PricePoint> {
   }
 
   const data = await response.json();
-  const raw = readPath(data, config.priceField);
+  const raw = readPath(data, field);
   const price = asNumber(raw);
 
   if (!price || price <= 0) {
-    throw new Error(`Invalid price from feed at field '${config.priceField}'`);
+    throw new Error(`Invalid price from feed at field '${field}'`);
   }
+
+  return price;
+}
+
+export async function fetchMarketPoint(config: RuntimeConfig): Promise<MarketPoint> {
+  const price = await fetchPriceFromFeed(config.priceFeedUrl, config.priceField);
+  const indexPrice =
+    config.indexFeedUrl && config.indexPriceField
+      ? await fetchPriceFromFeed(config.indexFeedUrl, config.indexPriceField)
+      : undefined;
 
   return {
     price,
+    indexPrice,
     fetchedAt: nowIso(),
   };
 }
