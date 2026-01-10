@@ -21,7 +21,27 @@ function asBoolean(value: string | undefined, fallback: boolean): boolean {
   return fallback;
 }
 
+function asTrimmed(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function asStartingCash(
+  value: string | undefined,
+  fallback: number,
+): { amount: number; useWallet: boolean } {
+  if (!value) return { amount: fallback, useWallet: false };
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === "wallet") return { amount: 0, useWallet: true };
+  const parsed = Number(value);
+  return Number.isFinite(parsed)
+    ? { amount: parsed, useWallet: false }
+    : { amount: fallback, useWallet: false };
+}
+
 export function buildRuntimeConfig(env: EnvBindings): RuntimeConfig {
+  const startingCash = asStartingCash(env.STARTING_CASH_USD, 0);
   return {
     assetSymbol: env.ASSET_SYMBOL || "WETH",
     quoteSymbol: env.QUOTE_SYMBOL || "USDC",
@@ -43,6 +63,10 @@ export function buildRuntimeConfig(env: EnvBindings): RuntimeConfig {
     defaultMaxTradesPerHour: asNumber(env.DEFAULT_MAX_TRADES_PER_HOUR, 0),
     defaultIndexMinMovePct: asNumber(env.DEFAULT_INDEX_MIN_MOVE_PCT, 0),
     defaultForecastLookback: asNumber(env.DEFAULT_FORECAST_LOOKBACK, 20),
+    startingCashUsd: startingCash.amount,
+    useWalletStartingCash: startingCash.useWallet,
+    startPaused: asBoolean(env.START_PAUSED, true),
+    walletAddress: asTrimmed(env.WALLET_ADDRESS),
     startingCashUsd: asNumber(env.STARTING_CASH_USD, 10000),
     startPaused: asBoolean(env.START_PAUSED, true),
     walletAddress: env.WALLET_ADDRESS,
