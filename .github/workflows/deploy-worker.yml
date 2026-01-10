@@ -21,5 +21,7 @@ jobs:
           command: deploy --config worker/wrangler.toml
           secrets: |
             BOT_PRIVATE_KEY
+            RPC_URL
         env:
           BOT_PRIVATE_KEY: ${{ secrets.BOT_PRIVATE_KEY }}
+          RPC_URL: ${{ secrets.RPC_URL }}

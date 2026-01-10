@@ -199,6 +199,26 @@ Set the Worker execution mode to `webhook` and configure the URL:
 
 The webhook receives JSON payloads describing the action and trade size. Implement your own executor to sign and submit trades.
 
+### On-chain execution (direct swap)
+
+If you want the Worker to sign and submit swaps directly, set:
+
+- `EXECUTION_MODE = "onchain"`
+- `QUOTE_SYMBOL = "USDC"` (or another token in `worker/src/chain.ts`)
+- `SWAP_ROUTER_ADDRESS` (optional override; defaults to the Uniswap V2 router in the address book)
+- `SWAP_SLIPPAGE_BPS` (default `50` = 0.5%)
+- `SWAP_DEADLINE_SEC` (default `300`)
+
+Then set Worker secrets:
+
+```bash
+cd worker
+wrangler secret put BOT_PRIVATE_KEY
+wrangler secret put RPC_URL
+```
+
+> **Note:** The on-chain mode submits swaps and logs the transaction hash. It does not wait for confirmations or reconcile on-chain balances.
+
 ---
 
 ## Troubleshooting

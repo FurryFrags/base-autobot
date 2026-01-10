@@ -21,10 +21,18 @@ PRICE_FEED_URL = "https://api.coinbase.com/v2/prices/ETH-USD/spot"
 PRICE_FIELD = "data.amount"
 ASSET_SYMBOL = "ETH"
 
-# Execution settings: paper | webhook | disabled
+# Execution settings: paper | webhook | onchain | disabled
 EXECUTION_MODE = "paper"
 # WEBHOOK_URL = "https://your-executor.example.com/trade"
 # WEBHOOK_AUTH_TOKEN = ""
+# QUOTE_SYMBOL = "USDC"
+# SWAP_ROUTER_ADDRESS = ""
+# SWAP_SLIPPAGE_BPS = "50"
+# SWAP_DEADLINE_SEC = "300"
+
+# Secrets for on-chain execution (set via `wrangler secret put`)
+# BOT_PRIVATE_KEY = ""
+# RPC_URL = ""
 
 # Strategy defaults
 DEFAULT_TRADE_SIZE_USD = "25"
