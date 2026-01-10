@@ -13,9 +13,37 @@ function asMode(value: string | undefined, fallback: ExecutionMode): ExecutionMo
   return fallback;
 }
 
+function asBoolean(value: string | undefined, fallback: boolean): boolean {
+  if (!value) return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (["true", "1", "yes", "y", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "n", "off"].includes(normalized)) return false;
+  return fallback;
+}
+
+function asTrimmed(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function asStartingCash(
+  value: string | undefined,
+  fallback: number,
+): { amount: number; useWallet: boolean } {
+  if (!value) return { amount: fallback, useWallet: false };
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === "wallet") return { amount: 0, useWallet: true };
+  const parsed = Number(value);
+  return Number.isFinite(parsed)
+    ? { amount: parsed, useWallet: false }
+    : { amount: fallback, useWallet: false };
+}
+
 export function buildRuntimeConfig(env: EnvBindings): RuntimeConfig {
+  const startingCash = asStartingCash(env.STARTING_CASH_USD, 0);
   return {
-    assetSymbol: env.ASSET_SYMBOL || "BASE",
+    assetSymbol: env.ASSET_SYMBOL || "WETH",
     quoteSymbol: env.QUOTE_SYMBOL || "USDC",
     priceFeedUrl: env.PRICE_FEED_URL || "https://api.coinbase.com/v2/prices/ETH-USD/spot",
     priceField: env.PRICE_FIELD || "data.amount",
@@ -35,8 +63,10 @@ export function buildRuntimeConfig(env: EnvBindings): RuntimeConfig {
     defaultMaxTradesPerHour: asNumber(env.DEFAULT_MAX_TRADES_PER_HOUR, 0),
     defaultIndexMinMovePct: asNumber(env.DEFAULT_INDEX_MIN_MOVE_PCT, 0),
     defaultForecastLookback: asNumber(env.DEFAULT_FORECAST_LOOKBACK, 20),
-    startingCashUsd: asNumber(env.STARTING_CASH_USD, 1000),
-    walletAddress: env.WALLET_ADDRESS,
+    startingCashUsd: startingCash.amount,
+    useWalletStartingCash: startingCash.useWallet,
+    startPaused: asBoolean(env.START_PAUSED, true),
+    walletAddress: asTrimmed(env.WALLET_ADDRESS),
     swapRouterAddress: env.SWAP_ROUTER_ADDRESS,
     swapSlippageBps: asNumber(env.SWAP_SLIPPAGE_BPS, 50),
     swapDeadlineSec: asNumber(env.SWAP_DEADLINE_SEC, 300),
@@ -75,6 +105,7 @@ export type EnvBindings = {
   DEFAULT_INDEX_MIN_MOVE_PCT?: string;
   DEFAULT_FORECAST_LOOKBACK?: string;
   STARTING_CASH_USD?: string;
+  START_PAUSED?: string;
   WALLET_ADDRESS?: string;
   SWAP_ROUTER_ADDRESS?: string;
   SWAP_SLIPPAGE_BPS?: string;

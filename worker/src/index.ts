@@ -1,5 +1,6 @@
 import { buildRuntimeConfig, buildRuntimeSecrets, type EnvBindings } from "./config";
 import { executeSignal } from "./execution";
+import { syncOnchainPortfolio } from "./onchain";
 import { fetchMarketPoint } from "./market";
 import { loadState, saveState } from "./state";
 import { evaluateStrategy } from "./strategy";
@@ -216,7 +217,11 @@ async function runOnce(env: EnvBindings, state: BotState): Promise<BotState> {
   const config = buildRuntimeConfig(env);
   const secrets = buildRuntimeSecrets(env);
   const pricePoint = await fetchMarketPoint(config);
-  const updatedHistory = updateMarketHistory(state, pricePoint);
+  const hydratedState =
+    config.executionMode === "onchain"
+      ? await syncOnchainPortfolio(config, secrets, state)
+      : state;
+  const updatedHistory = updateMarketHistory(hydratedState, pricePoint);
   const { signal } = evaluateStrategy(pricePoint, updatedHistory);
   const { result, nextState } = await executeSignal(config, secrets, updatedHistory, signal);
   const withWalletHistory = updateWalletHistory(nextState, pricePoint.price, pricePoint.fetchedAt);
@@ -225,10 +230,20 @@ async function runOnce(env: EnvBindings, state: BotState): Promise<BotState> {
     ...withWalletHistory,
     lastRunAt: new Date().toISOString(),
     lastPrice: pricePoint.price,
-    lastIndexPrice: pricePoint.indexPrice ?? state.lastIndexPrice,
+    lastIndexPrice: pricePoint.indexPrice ?? hydratedState.lastIndexPrice,
     lastSignal: signal,
     lastExecution: result,
   };
+}
+
+async function maybeSyncPortfolio(
+  env: EnvBindings,
+  config: ReturnType<typeof buildRuntimeConfig>,
+  state: BotState,
+): Promise<BotState> {
+  if (config.executionMode !== "onchain") return state;
+  const secrets = buildRuntimeSecrets(env);
+  return syncOnchainPortfolio(config, secrets, state);
 }
 
 async function runOnceWithDiagnostics(
@@ -401,12 +416,14 @@ export default {
 
     if (url.pathname === "/state") {
       const state = await loadState(env.KV, config);
-      return json(state);
+      const synced = await maybeSyncPortfolio(env, config, state);
+      return json(synced);
     }
 
     if (url.pathname === "/portfolio" && method === "GET") {
       const state = await loadState(env.KV, config);
-      return json(state.portfolio);
+      const synced = await maybeSyncPortfolio(env, config, state);
+      return json(synced.portfolio);
     }
 
     if (url.pathname === "/portfolio" && method === "POST") {

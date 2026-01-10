@@ -33,6 +33,47 @@ function toDecimalString(value: number, decimals: number): string {
   return value.toFixed(safeDecimals);
 }
 
+const STABLE_QUOTE_KEYS = new Set(["usdc", "usdbc"]);
+
+export async function syncOnchainPortfolio(
+  config: RuntimeConfig,
+  secrets: RuntimeSecrets,
+  state: BotState,
+): Promise<BotState> {
+  if (!secrets.rpcUrl || !config.walletAddress) return state;
+  if (!isAddress(config.walletAddress)) return state;
+
+  const assetTokenKey = resolveTokenKey(config.assetSymbol, config.addressBook.tokens);
+  const quoteTokenKey = resolveTokenKey(config.quoteSymbol, config.addressBook.tokens);
+  if (!assetTokenKey || !quoteTokenKey) return state;
+
+  const assetToken = config.addressBook.tokens[assetTokenKey];
+  const quoteToken = config.addressBook.tokens[quoteTokenKey];
+  if (![assetToken, quoteToken].every((addr) => isAddress(addr))) return state;
+
+  const provider = new JsonRpcProvider(secrets.rpcUrl);
+  const assetContract = new Contract(assetToken, erc20Abi, provider);
+  const quoteContract = new Contract(quoteToken, erc20Abi, provider);
+  const [assetDecimals, quoteDecimals, assetBalanceRaw, quoteBalanceRaw] = await Promise.all([
+    assetContract.decimals(),
+    quoteContract.decimals(),
+    assetContract.balanceOf(config.walletAddress),
+    quoteContract.balanceOf(config.walletAddress),
+  ]);
+  const assetBalance = Number(formatUnits(assetBalanceRaw, assetDecimals));
+  const quoteBalance = Number(formatUnits(quoteBalanceRaw, quoteDecimals));
+  if (!Number.isFinite(assetBalance) || !Number.isFinite(quoteBalance)) return state;
+
+  return {
+    ...state,
+    portfolio: {
+      ...state.portfolio,
+      asset: assetBalance,
+      cashUsd: STABLE_QUOTE_KEYS.has(quoteTokenKey) ? quoteBalance : state.portfolio.cashUsd,
+    },
+  };
+}
+
 export async function executeOnchainTrade(
   config: RuntimeConfig,
   secrets: RuntimeSecrets,
@@ -127,6 +168,39 @@ export async function executeOnchainTrade(
 
   const provider = new JsonRpcProvider(secrets.rpcUrl);
   const wallet = new Wallet(privateKey, provider);
+  if (!config.walletAddress) {
+    return {
+      result: {
+        status: "failed",
+        mode: "onchain",
+        detail: "WALLET_ADDRESS is not set",
+        executedAt,
+      },
+      nextState: state,
+    };
+  }
+  if (!isAddress(config.walletAddress)) {
+    return {
+      result: {
+        status: "failed",
+        mode: "onchain",
+        detail: "WALLET_ADDRESS is invalid",
+        executedAt,
+      },
+      nextState: state,
+    };
+  }
+  if (wallet.address.toLowerCase() !== config.walletAddress.toLowerCase()) {
+    return {
+      result: {
+        status: "failed",
+        mode: "onchain",
+        detail: "WALLET_ADDRESS does not match BOT_PRIVATE_KEY",
+        executedAt,
+      },
+      nextState: state,
+    };
+  }
   const inputToken = signal.action === "buy" ? quoteToken : assetToken;
   const outputToken = signal.action === "buy" ? assetToken : quoteToken;
   const inputContract = new Contract(inputToken, erc20Abi, provider);
