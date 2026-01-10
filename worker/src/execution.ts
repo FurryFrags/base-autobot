@@ -1,4 +1,12 @@
-import type { BotState, ExecutionResult, RuntimeConfig, Signal, TransactionRecord } from "./types";
+import type {
+  BotState,
+  ExecutionResult,
+  RuntimeConfig,
+  RuntimeSecrets,
+  Signal,
+  TransactionRecord,
+} from "./types";
+import { executeOnchainTrade } from "./onchain";
 import { nowIso, resolveTokenKey } from "./utils";
 
 const MAX_TRANSACTIONS = 200;
@@ -46,6 +54,7 @@ function canTrade(state: BotState): { ok: boolean; reason?: string } {
 
 export async function executeSignal(
   config: RuntimeConfig,
+  secrets: RuntimeSecrets,
   state: BotState,
   signal: Signal,
 ): Promise<{ result: ExecutionResult; nextState: BotState }> {
@@ -168,6 +177,18 @@ export async function executeSignal(
         tradeSizeUsd: state.params.tradeSizeUsd,
       },
     );
+  }
+
+  if (config.executionMode === "onchain") {
+    const { result, nextState } = await executeOnchainTrade(
+      config,
+      secrets,
+      state,
+      signal,
+      totalPortfolioUsd,
+      allocationTarget,
+    );
+    return finalizeResult(nextState, signal, result);
   }
 
   const tradeSizeUsd = state.params.tradeSizeUsd;

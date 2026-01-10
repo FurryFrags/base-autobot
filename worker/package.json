@@ -7,6 +7,9 @@
     "deploy": "wrangler deploy",
     "lint": "node -e \"console.log('lint placeholder')\""
   },
+  "dependencies": {
+    "ethers": "6.13.4"
+  },
   "devDependencies": {
     "wrangler": "^3.78.0",
     "typescript": "^5.6.3"

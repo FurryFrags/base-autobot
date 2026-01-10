@@ -1,4 +1,4 @@
-import { buildRuntimeConfig, type EnvBindings } from "./config";
+import { buildRuntimeConfig, buildRuntimeSecrets, type EnvBindings } from "./config";
 import { executeSignal } from "./execution";
 import { fetchMarketPoint } from "./market";
 import { loadState, saveState } from "./state";
@@ -214,10 +214,11 @@ async function requireAuth(req: Request, env: EnvBindings): Promise<boolean> {
 
 async function runOnce(env: EnvBindings, state: BotState): Promise<BotState> {
   const config = buildRuntimeConfig(env);
+  const secrets = buildRuntimeSecrets(env);
   const pricePoint = await fetchMarketPoint(config);
   const updatedHistory = updateMarketHistory(state, pricePoint);
   const { signal } = evaluateStrategy(pricePoint, updatedHistory);
-  const { result, nextState } = await executeSignal(config, updatedHistory, signal);
+  const { result, nextState } = await executeSignal(config, secrets, updatedHistory, signal);
   const withWalletHistory = updateWalletHistory(nextState, pricePoint.price, pricePoint.fetchedAt);
 
   return {

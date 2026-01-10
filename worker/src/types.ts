@@ -1,7 +1,8 @@
-export type ExecutionMode = "paper" | "webhook" | "disabled";
+export type ExecutionMode = "paper" | "webhook" | "onchain" | "disabled";
 
 export type RuntimeConfig = {
   assetSymbol: string;
+  quoteSymbol: string;
   priceFeedUrl: string;
   priceField: string;
   indexFeedUrl?: string;
@@ -22,6 +23,9 @@ export type RuntimeConfig = {
   defaultForecastLookback: number;
   startingCashUsd: number;
   walletAddress?: string;
+  swapRouterAddress?: string;
+  swapSlippageBps: number;
+  swapDeadlineSec: number;
   addressBook: {
     chainId: number;
     network: string;
@@ -43,6 +47,11 @@ export type RuntimeConfig = {
       base: string;
     };
   };
+};
+
+export type RuntimeSecrets = {
+  rpcUrl?: string;
+  botPrivateKey?: string;
 };
 
 export type PricePoint = {

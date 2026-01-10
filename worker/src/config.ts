@@ -1,4 +1,4 @@
-import type { ExecutionMode, RuntimeConfig } from "./types";
+import type { ExecutionMode, RuntimeConfig, RuntimeSecrets } from "./types";
 import { baseMainnetAddressBook } from "./chain";
 
 function asNumber(value: string | undefined, fallback: number): number {
@@ -8,13 +8,15 @@ function asNumber(value: string | undefined, fallback: number): number {
 }
 
 function asMode(value: string | undefined, fallback: ExecutionMode): ExecutionMode {
-  if (value === "paper" || value === "webhook" || value === "disabled") return value;
+  if (value === "paper" || value === "webhook" || value === "onchain" || value === "disabled")
+    return value;
   return fallback;
 }
 
 export function buildRuntimeConfig(env: EnvBindings): RuntimeConfig {
   return {
     assetSymbol: env.ASSET_SYMBOL || "BASE",
+    quoteSymbol: env.QUOTE_SYMBOL || "USDC",
     priceFeedUrl: env.PRICE_FEED_URL || "https://api.coinbase.com/v2/prices/ETH-USD/spot",
     priceField: env.PRICE_FIELD || "data.amount",
     indexFeedUrl: env.INDEX_FEED_URL,
@@ -35,7 +37,17 @@ export function buildRuntimeConfig(env: EnvBindings): RuntimeConfig {
     defaultForecastLookback: asNumber(env.DEFAULT_FORECAST_LOOKBACK, 20),
     startingCashUsd: asNumber(env.STARTING_CASH_USD, 1000),
     walletAddress: env.WALLET_ADDRESS,
+    swapRouterAddress: env.SWAP_ROUTER_ADDRESS,
+    swapSlippageBps: asNumber(env.SWAP_SLIPPAGE_BPS, 50),
+    swapDeadlineSec: asNumber(env.SWAP_DEADLINE_SEC, 300),
     addressBook: baseMainnetAddressBook,
+  };
+}
+
+export function buildRuntimeSecrets(env: EnvBindings): RuntimeSecrets {
+  return {
+    rpcUrl: env.RPC_URL,
+    botPrivateKey: env.BOT_PRIVATE_KEY,
   };
 }
 
@@ -43,6 +55,7 @@ export type EnvBindings = {
   KV: KVNamespace;
   ADMIN_TOKEN?: string;
   ASSET_SYMBOL?: string;
+  QUOTE_SYMBOL?: string;
   PRICE_FEED_URL?: string;
   PRICE_FIELD?: string;
   INDEX_FEED_URL?: string;
@@ -63,4 +76,9 @@ export type EnvBindings = {
   DEFAULT_FORECAST_LOOKBACK?: string;
   STARTING_CASH_USD?: string;
   WALLET_ADDRESS?: string;
+  SWAP_ROUTER_ADDRESS?: string;
+  SWAP_SLIPPAGE_BPS?: string;
+  SWAP_DEADLINE_SEC?: string;
+  RPC_URL?: string;
+  BOT_PRIVATE_KEY?: string;
 };
