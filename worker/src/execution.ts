@@ -1,5 +1,34 @@
-import type { BotState, ExecutionResult, RuntimeConfig, Signal } from "./types";
+import type { BotState, ExecutionResult, RuntimeConfig, Signal, TransactionRecord } from "./types";
 import { nowIso, resolveTokenKey } from "./utils";
+
+const MAX_TRANSACTIONS = 200;
+
+function recordTransaction(state: BotState, signal: Signal, result: ExecutionResult): BotState {
+  if (signal.action === "hold") return state;
+  if (result.status === "skipped") return state;
+  const record: TransactionRecord = {
+    action: signal.action,
+    status: result.status,
+    mode: result.mode,
+    price: signal.price,
+    executedAt: result.executedAt,
+    tradeSizeUsd: result.tradeSizeUsd,
+    assetDelta: result.assetDelta,
+    cashDelta: result.cashDelta,
+    detail: result.detail,
+    reason: signal.reason,
+  };
+  const history = [...(state.transactions ?? []), record].slice(-MAX_TRANSACTIONS);
+  return { ...state, transactions: history };
+}
+
+function finalizeResult(
+  state: BotState,
+  signal: Signal,
+  result: ExecutionResult,
+): { result: ExecutionResult; nextState: BotState } {
+  return { result, nextState: recordTransaction(state, signal, result) };
+}
 
 function canTrade(state: BotState): { ok: boolean; reason?: string } {
   if (!state.lastTradeAt) return { ok: true };
@@ -31,53 +60,41 @@ export async function executeSignal(
     Object.values(state.portfolio.tokenBalancesUsd ?? {}).reduce((sum, value) => sum + value, 0);
 
   if (signal.action === "hold") {
-    return {
-      result: {
-        status: "skipped",
-        mode: config.executionMode,
-        detail: "Hold signal",
-        executedAt: nowIso(),
-      },
-      nextState: state,
-    };
+    return finalizeResult(state, signal, {
+      status: "skipped",
+      mode: config.executionMode,
+      detail: "Hold signal",
+      executedAt: nowIso(),
+    });
   }
 
   const tradeOk = canTrade(state);
   if (!tradeOk.ok) {
-    return {
-      result: {
-        status: "skipped",
-        mode: config.executionMode,
-        detail: tradeOk.reason,
-        executedAt: nowIso(),
-      },
-      nextState: state,
-    };
+    return finalizeResult(state, signal, {
+      status: "skipped",
+      mode: config.executionMode,
+      detail: tradeOk.reason,
+      executedAt: nowIso(),
+    });
   }
 
   if (config.executionMode === "disabled") {
-    return {
-      result: {
-        status: "skipped",
-        mode: config.executionMode,
-        detail: "Execution disabled",
-        executedAt: nowIso(),
-      },
-      nextState: state,
-    };
+    return finalizeResult(state, signal, {
+      status: "skipped",
+      mode: config.executionMode,
+      detail: "Execution disabled",
+      executedAt: nowIso(),
+    });
   }
 
   if (config.executionMode === "webhook") {
     if (!config.webhookUrl) {
-      return {
-        result: {
-          status: "failed",
-          mode: config.executionMode,
-          detail: "WEBHOOK_URL is not set",
-          executedAt: nowIso(),
-        },
-        nextState: state,
-      };
+      return finalizeResult(state, signal, {
+        status: "failed",
+        mode: config.executionMode,
+        detail: "WEBHOOK_URL is not set",
+        executedAt: nowIso(),
+      });
     }
 
     const exposureUsd = state.portfolio.asset * signal.price;
@@ -129,43 +146,38 @@ export async function executeSignal(
     });
 
     if (!response.ok) {
-      return {
-        result: {
-          status: "failed",
-          mode: config.executionMode,
-          detail: `Webhook error (${response.status})`,
-          executedAt: nowIso(),
-        },
-        nextState: state,
-      };
+      return finalizeResult(state, signal, {
+        status: "failed",
+        mode: config.executionMode,
+        detail: `Webhook error (${response.status})`,
+        executedAt: nowIso(),
+      });
     }
 
-    return {
-      result: {
+    return finalizeResult(
+      {
+        ...state,
+        lastTradeAt: nowIso(),
+      },
+      signal,
+      {
         status: "submitted",
         mode: config.executionMode,
         detail: "Webhook accepted",
         executedAt: nowIso(),
         tradeSizeUsd: state.params.tradeSizeUsd,
       },
-      nextState: {
-        ...state,
-        lastTradeAt: nowIso(),
-      },
-    };
+    );
   }
 
   const tradeSizeUsd = state.params.tradeSizeUsd;
   if (tradeSizeUsd <= 0) {
-    return {
-      result: {
-        status: "failed",
-        mode: config.executionMode,
-        detail: "Trade size must be positive",
-        executedAt: nowIso(),
-      },
-      nextState: state,
-    };
+    return finalizeResult(state, signal, {
+      status: "failed",
+      mode: config.executionMode,
+      detail: "Trade size must be positive",
+      executedAt: nowIso(),
+    });
   }
 
   const price = signal.price;
@@ -176,28 +188,22 @@ export async function executeSignal(
       const projectedExposure = state.portfolio.asset * price + tradeSizeUsd;
       const allocationLimit = totalPortfolioUsd * allocationTarget;
       if (projectedExposure > allocationLimit) {
-        return {
-          result: {
-            status: "skipped",
-            mode: config.executionMode,
-            detail: "Allocation limit reached",
-            executedAt: nowIso(),
-          },
-          nextState: state,
-        };
+        return finalizeResult(state, signal, {
+          status: "skipped",
+          mode: config.executionMode,
+          detail: "Allocation limit reached",
+          executedAt: nowIso(),
+        });
       }
     }
 
     if (state.portfolio.cashUsd < tradeSizeUsd) {
-      return {
-        result: {
-          status: "skipped",
-          mode: config.executionMode,
-          detail: "Insufficient cash",
-          executedAt: nowIso(),
-        },
-        nextState: state,
-      };
+      return finalizeResult(state, signal, {
+        status: "skipped",
+        mode: config.executionMode,
+        detail: "Insufficient cash",
+        executedAt: nowIso(),
+      });
     }
 
     const nextAsset = state.portfolio.asset + assetDelta;
@@ -217,31 +223,25 @@ export async function executeSignal(
       },
     };
 
-    return {
-      result: {
-        status: "filled",
-        mode: config.executionMode,
-        detail: "Paper buy executed",
-        executedAt: nowIso(),
-        tradeSizeUsd,
-        assetDelta,
-        cashDelta: -tradeSizeUsd,
-      },
-      nextState,
-    };
+    return finalizeResult(nextState, signal, {
+      status: "filled",
+      mode: config.executionMode,
+      detail: "Paper buy executed",
+      executedAt: nowIso(),
+      tradeSizeUsd,
+      assetDelta,
+      cashDelta: -tradeSizeUsd,
+    });
   }
 
   const maxAssetToSell = Math.min(state.portfolio.asset, assetDelta);
   if (maxAssetToSell <= 0) {
-    return {
-      result: {
-        status: "skipped",
-        mode: config.executionMode,
-        detail: "No asset balance to sell",
-        executedAt: nowIso(),
-      },
-      nextState: state,
-    };
+    return finalizeResult(state, signal, {
+      status: "skipped",
+      mode: config.executionMode,
+      detail: "No asset balance to sell",
+      executedAt: nowIso(),
+    });
   }
 
   const cashDelta = maxAssetToSell * price;
@@ -259,16 +259,13 @@ export async function executeSignal(
     },
   };
 
-  return {
-    result: {
-      status: "filled",
-      mode: config.executionMode,
-      detail: "Paper sell executed",
-      executedAt: nowIso(),
-      tradeSizeUsd: cashDelta,
-      assetDelta: -maxAssetToSell,
-      cashDelta,
-    },
-    nextState,
-  };
+  return finalizeResult(nextState, signal, {
+    status: "filled",
+    mode: config.executionMode,
+    detail: "Paper sell executed",
+    executedAt: nowIso(),
+    tradeSizeUsd: cashDelta,
+    assetDelta: -maxAssetToSell,
+    cashDelta,
+  });
 }
