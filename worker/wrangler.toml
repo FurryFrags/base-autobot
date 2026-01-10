@@ -22,7 +22,7 @@ PRICE_FIELD = "data.amount"
 ASSET_SYMBOL = "ETH"
 
 # Execution settings: paper | webhook | onchain | disabled
-EXECUTION_MODE = "paper"
+EXECUTION_MODE = "onchain"
 # WEBHOOK_URL = "https://your-executor.example.com/trade"
 # WEBHOOK_AUTH_TOKEN = ""
 # QUOTE_SYMBOL = "USDC"
