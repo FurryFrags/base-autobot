@@ -27,16 +27,63 @@ function renderLandingPage(): string {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Base AutoBot Worker</title>
   <style>
-    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; max-width: 760px; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; max-width: 960px; }
     code { background:#f6f6f6; padding: 2px 6px; border-radius: 6px; }
     a { color: #0b5fff; }
     .card { border:1px solid #eee; border-radius: 14px; padding: 16px; margin-top: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 16px; }
+    .row .card { flex: 1 1 280px; }
+    .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #65748b; margin-bottom: 4px; }
+    .value { font-size: 24px; font-weight: 600; }
+    .muted { color: #6b7280; font-size: 14px; }
+    canvas { width: 100%; height: 240px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #65748b; }
+    .pill { padding: 2px 8px; border-radius: 999px; font-size: 12px; background: #f3f4f6; display: inline-block; }
   </style>
 </head>
 <body>
   <h1>Base AutoBot Worker</h1>
-  <p>This Worker serves the API for the Base AutoBot. If you expected a dashboard UI, deploy the
-  static dashboard in <code>apps/dashboard/</code> using Cloudflare Pages.</p>
+  <p class="muted">Live wallet summary and execution history from the Worker API.</p>
+  <div class="row">
+    <div class="card">
+      <div class="label">Total wallet value</div>
+      <div class="value" id="wallet-total">--</div>
+      <div class="muted" id="wallet-breakdown">--</div>
+    </div>
+    <div class="card">
+      <div class="label">Connected wallet</div>
+      <div class="value" id="wallet-address">--</div>
+      <div class="muted" id="wallet-network">--</div>
+    </div>
+    <div class="card">
+      <div class="label">Last run</div>
+      <div class="value" id="last-run">--</div>
+      <div class="muted" id="execution-mode">--</div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Wallet value over time</h2>
+    <canvas id="wallet-chart" width="880" height="240"></canvas>
+    <div class="muted" id="wallet-chart-note"></div>
+  </div>
+  <div class="card">
+    <h2>Transactions</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Action</th>
+          <th>Status</th>
+          <th>Price</th>
+          <th>Size (USD)</th>
+          <th>Detail</th>
+        </tr>
+      </thead>
+      <tbody id="transactions-body"></tbody>
+    </table>
+  </div>
   <div class="card">
     <h2>Useful endpoints</h2>
     <ul>
@@ -46,6 +93,113 @@ function renderLandingPage(): string {
       <li><code>POST /resume</code> — resume bot (requires ADMIN_TOKEN if set)</li>
     </ul>
   </div>
+  <script>
+    const formatter = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+    const compact = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 });
+
+    function renderChart(history) {
+      const canvas = document.getElementById("wallet-chart");
+      const note = document.getElementById("wallet-chart-note");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!history.length) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px ui-sans-serif, system-ui";
+        ctx.fillText("No history yet. Run the bot to capture wallet value points.", 12, 32);
+        note.textContent = "";
+        return;
+      }
+
+      const values = history.map((point) => point.valueUsd);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const padding = 32;
+      const width = canvas.width - padding * 2;
+      const height = canvas.height - padding * 2;
+      const range = max - min || 1;
+      ctx.strokeStyle = "#0b5fff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      values.forEach((value, index) => {
+        const x = padding + (index / (values.length - 1 || 1)) * width;
+        const y = padding + height - ((value - min) / range) * height;
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.stroke();
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "12px ui-sans-serif, system-ui";
+      ctx.fillText(formatter.format(max), padding, padding - 8);
+      ctx.fillText(formatter.format(min), padding, canvas.height - 8);
+      const latest = history[history.length - 1];
+      note.textContent = latest ? \`Latest wallet value at \${new Date(latest.at).toLocaleString()}\` : "";
+    }
+
+    function renderTransactions(transactions) {
+      const body = document.getElementById("transactions-body");
+      body.innerHTML = "";
+      if (!transactions.length) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 6;
+        cell.className = "muted";
+        cell.textContent = "No transactions recorded yet.";
+        row.appendChild(cell);
+        body.appendChild(row);
+        return;
+      }
+      transactions
+        .slice()
+        .reverse()
+        .forEach((txn) => {
+          const row = document.createElement("tr");
+          row.innerHTML = \`
+            <td>\${new Date(txn.executedAt).toLocaleString()}</td>
+            <td><span class="pill">\${txn.action.toUpperCase()}</span></td>
+            <td>\${txn.status}</td>
+            <td>\${formatter.format(txn.price)}</td>
+            <td>\${txn.tradeSizeUsd ? formatter.format(txn.tradeSizeUsd) : "--"}</td>
+            <td>\${txn.detail || txn.reason || "--"}</td>
+          \`;
+          body.appendChild(row);
+        });
+    }
+
+    async function loadData() {
+      const [stateRes, configRes] = await Promise.all([fetch("/state"), fetch("/config")]);
+      const state = await stateRes.json();
+      const config = await configRes.json();
+      const price = state.lastPrice || 0;
+      const tokenTotal = Object.values(state.portfolio.tokenBalancesUsd || {}).reduce(
+        (sum, value) => sum + (Number.isFinite(value) ? value : 0),
+        0,
+      );
+      const assetValue = state.portfolio.asset * price;
+      const total = state.portfolio.cashUsd + assetValue + tokenTotal;
+      document.getElementById("wallet-total").textContent = formatter.format(total);
+      document.getElementById("wallet-breakdown").textContent =
+        \`Cash \${formatter.format(state.portfolio.cashUsd)} · Asset \${compact.format(state.portfolio.asset)} \${config.assetSymbol}\` +
+        \` · Tokens \${formatter.format(tokenTotal)}\`;
+      document.getElementById("wallet-address").textContent = config.walletAddress || "Not configured";
+      document.getElementById("wallet-network").textContent = config.walletAddress
+        ? \`Network: \${config.addressBook.network}\`
+        : "Set WALLET_ADDRESS to display the connected wallet.";
+      document.getElementById("last-run").textContent = state.lastRunAt
+        ? new Date(state.lastRunAt).toLocaleString()
+        : "Not run yet";
+      document.getElementById("execution-mode").textContent = \`Mode: \${config.executionMode}\`;
+      renderChart(state.walletHistory || []);
+      renderTransactions(state.transactions || []);
+    }
+
+    loadData().catch((error) => {
+      document.getElementById("wallet-total").textContent = "Error loading data";
+      document.getElementById("wallet-breakdown").textContent = error?.message || String(error);
+    });
+  </script>
 </body>
 </html>`;
 }
@@ -64,9 +218,10 @@ async function runOnce(env: EnvBindings, state: BotState): Promise<BotState> {
   const updatedHistory = updateMarketHistory(state, pricePoint);
   const { signal } = evaluateStrategy(pricePoint, updatedHistory);
   const { result, nextState } = await executeSignal(config, updatedHistory, signal);
+  const withWalletHistory = updateWalletHistory(nextState, pricePoint.price, pricePoint.fetchedAt);
 
   return {
-    ...nextState,
+    ...withWalletHistory,
     lastRunAt: new Date().toISOString(),
     lastPrice: pricePoint.price,
     lastIndexPrice: pricePoint.indexPrice ?? state.lastIndexPrice,
@@ -121,6 +276,27 @@ function updateMarketHistory(state: BotState, point: { price: number; indexPrice
     ...state,
     priceHistory: history,
     indexHistory,
+  };
+}
+
+const MAX_WALLET_HISTORY = 120;
+
+function calculatePortfolioValue(state: BotState, price: number): number {
+  const tokenTotal = Object.values(state.portfolio.tokenBalancesUsd ?? {}).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
+  return state.portfolio.cashUsd + state.portfolio.asset * price + tokenTotal;
+}
+
+function updateWalletHistory(state: BotState, price: number, at: string): BotState {
+  const next = [
+    ...(state.walletHistory ?? []),
+    { valueUsd: calculatePortfolioValue(state, price), at },
+  ].slice(-MAX_WALLET_HISTORY);
+  return {
+    ...state,
+    walletHistory: next,
   };
 }
 

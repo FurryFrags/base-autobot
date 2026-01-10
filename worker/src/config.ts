@@ -34,6 +34,7 @@ export function buildRuntimeConfig(env: EnvBindings): RuntimeConfig {
     defaultIndexMinMovePct: asNumber(env.DEFAULT_INDEX_MIN_MOVE_PCT, 0),
     defaultForecastLookback: asNumber(env.DEFAULT_FORECAST_LOOKBACK, 20),
     startingCashUsd: asNumber(env.STARTING_CASH_USD, 1000),
+    walletAddress: env.WALLET_ADDRESS,
     addressBook: baseMainnetAddressBook,
   };
 }
@@ -61,4 +62,5 @@ export type EnvBindings = {
   DEFAULT_INDEX_MIN_MOVE_PCT?: string;
   DEFAULT_FORECAST_LOOKBACK?: string;
   STARTING_CASH_USD?: string;
+  WALLET_ADDRESS?: string;
 };

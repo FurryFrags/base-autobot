@@ -27,6 +27,8 @@ function defaultState(config: RuntimeConfig): BotState {
     avgEntryPrice: undefined,
     priceHistory: [],
     indexHistory: [],
+    walletHistory: [],
+    transactions: [],
     params: {
       tradeSizeUsd: config.defaultTradeSizeUsd,
       minMovePct: config.defaultMinMovePct,
@@ -64,6 +66,8 @@ export async function loadState(KV: KVNamespace, config: RuntimeConfig): Promise
     },
     priceHistory: parsed.priceHistory ?? defaultState(config).priceHistory,
     indexHistory: parsed.indexHistory ?? defaultState(config).indexHistory,
+    walletHistory: parsed.walletHistory ?? defaultState(config).walletHistory,
+    transactions: parsed.transactions ?? defaultState(config).transactions,
     params: {
       ...defaultState(config).params,
       ...parsed.params,

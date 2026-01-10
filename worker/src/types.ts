@@ -21,6 +21,7 @@ export type RuntimeConfig = {
   defaultIndexMinMovePct: number;
   defaultForecastLookback: number;
   startingCashUsd: number;
+  walletAddress?: string;
   addressBook: {
     chainId: number;
     network: string;
@@ -73,6 +74,19 @@ export type ExecutionResult = {
   cashDelta?: number;
 };
 
+export type TransactionRecord = {
+  action: "buy" | "sell";
+  status: ExecutionResult["status"];
+  mode: ExecutionMode;
+  price: number;
+  executedAt: string;
+  tradeSizeUsd?: number;
+  assetDelta?: number;
+  cashDelta?: number;
+  detail?: string;
+  reason?: string;
+};
+
 export type BotState = {
   paused: boolean;
   lastRunAt?: string;
@@ -92,6 +106,8 @@ export type BotState = {
   avgEntryPrice?: number;
   priceHistory: number[];
   indexHistory: number[];
+  walletHistory: { valueUsd: number; at: string }[];
+  transactions: TransactionRecord[];
   params: {
     tradeSizeUsd: number;
     minMovePct: number;
