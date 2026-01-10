@@ -12,6 +12,44 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+function htmlPage(body: string, status = 200): Response {
+  return new Response(body, {
+    status,
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
+}
+
+function renderLandingPage(): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Base AutoBot Worker</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; max-width: 760px; }
+    code { background:#f6f6f6; padding: 2px 6px; border-radius: 6px; }
+    a { color: #0b5fff; }
+    .card { border:1px solid #eee; border-radius: 14px; padding: 16px; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Base AutoBot Worker</h1>
+  <p>This Worker serves the API for the Base AutoBot. If you expected a dashboard UI, deploy the
+  static dashboard in <code>apps/dashboard/</code> using Cloudflare Pages.</p>
+  <div class="card">
+    <h2>Useful endpoints</h2>
+    <ul>
+      <li><a href="/health">/health</a> — quick health check</li>
+      <li><a href="/state">/state</a> — current bot state</li>
+      <li><code>POST /pause</code> — pause bot (requires ADMIN_TOKEN if set)</li>
+      <li><code>POST /resume</code> — resume bot (requires ADMIN_TOKEN if set)</li>
+    </ul>
+  </div>
+</body>
+</html>`;
+}
+
 async function requireAuth(req: Request, env: EnvBindings): Promise<boolean> {
   if (!env.ADMIN_TOKEN) return true;
   const header = req.headers.get("authorization") || req.headers.get("x-admin-token");
@@ -171,6 +209,10 @@ export default {
     const url = new URL(req.url);
     const method = req.method.toUpperCase();
     const config = buildRuntimeConfig(env);
+
+    if (url.pathname === "/") {
+      return htmlPage(renderLandingPage());
+    }
 
     if (url.pathname === "/health") {
       return json({ ok: true, mode: config.executionMode, asset: config.assetSymbol });
