@@ -22,6 +22,7 @@ export type RuntimeConfig = {
   defaultIndexMinMovePct: number;
   defaultForecastLookback: number;
   startingCashUsd: number;
+  startPaused: boolean;
   walletAddress?: string;
   swapRouterAddress?: string;
   swapSlippageBps: number;

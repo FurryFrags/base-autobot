@@ -11,7 +11,7 @@ function buildTokenRecord(value: number, config: RuntimeConfig): Record<string, 
 
 function defaultState(config: RuntimeConfig): BotState {
   return {
-    paused: true,
+    paused: config.startPaused,
     lastRunAt: undefined,
     lastPrice: undefined,
     lastIndexPrice: undefined,
