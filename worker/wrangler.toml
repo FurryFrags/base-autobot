@@ -32,7 +32,7 @@ QUOTE_SYMBOL = "USDC"
 
 # Secrets for on-chain execution (set via `wrangler secret put`)
 # BOT_PRIVATE_KEY = ""
-# RPC_URL = ""
+RPC_URL = "https://mainnet.base.org"
 
 # Strategy defaults
 DEFAULT_TRADE_SIZE_USD = "25"
